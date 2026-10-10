@@ -1,0 +1,33 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.kotlin/
+
+# артефакты сборки и ключи подписи (секреты — не публиковать)
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# локальные заметки сессий ZCode (не публиковать)
+/Заметки-сессии*.md
+
+# локальные личные материалы (не публиковать)
+/docs/Знания-о-проекте.md
+/Создание-Андроид-Приложения-Для-Проигрывания-Музыки/
+/Создание-Андроид-Приложения-Для-Проигрывания-Музыки.zip
+/folder-music-player.png
+/8dde8b2a5a4676de1478036510e3d153.jpg
+/Icons/iconikai-icon-pack.zip
+/Colors/Цвета.txt
+
+# служебные данные ZCode-сессий
+/.zcode/
+
