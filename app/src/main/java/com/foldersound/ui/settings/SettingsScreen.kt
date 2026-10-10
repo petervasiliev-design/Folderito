@@ -53,6 +53,7 @@ import kotlin.math.roundToInt
 
 /**
  * Экран «Настройки»: язык, цветовая схема, кнопки перемотки и их шаг (5–60 с).
+ * Таймер сна вынесен на отдельный экран (шторка → «Таймер сна»).
  */
 @Composable
 fun SettingsScreen(
@@ -289,8 +290,7 @@ private fun SkinSwatch(c: FsColors) {
     }
 }
 
-/** Строка выбора языка: значок-бейдж (или глобус), название, галочка при выборе. */
-@Composable
+/** Строка выбора языка: значок-бейдж (или глобус), название, галочка при выборе. */@Composable
 private fun LangRow(
     badge: String?,
     label: String,

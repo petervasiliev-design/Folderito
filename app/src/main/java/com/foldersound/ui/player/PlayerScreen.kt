@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -67,10 +69,12 @@ import com.foldersound.ui.i18n.LocalStrings
 import com.foldersound.data.Track
 import com.foldersound.playback.AudioEffects
 import com.foldersound.playback.PlayerConnection
+import com.foldersound.playback.SleepTimer
 import com.foldersound.ui.common.HSlider
 import com.foldersound.ui.common.IconBtn
 import com.foldersound.ui.common.eqDot
 import com.foldersound.ui.common.formatMs
+import com.foldersound.ui.common.holdToggle
 import com.foldersound.ui.common.horizontalSwipes
 import com.foldersound.ui.theme.Fs
 import kotlinx.coroutines.delay
@@ -108,6 +112,17 @@ fun PlayerScreen(
         }
     }
 
+    // таймер сна: тикаем только пока он запущен
+    val sleepDeadline by SleepTimer.deadlineMs.collectAsStateWithLifecycle()
+    var sleepNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(sleepDeadline) {
+        while (sleepDeadline != null) {
+            sleepNow = System.currentTimeMillis()
+            delay(500)
+        }
+    }
+    val sleepRemainMs = ((sleepDeadline ?: 0L) - sleepNow).coerceAtLeast(0L)
+
     Column(
         Modifier
             .fillMaxSize()
@@ -122,7 +137,18 @@ fun PlayerScreen(
             Modifier.padding(start = 4.dp, end = 4.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconBtn(Icons.AutoMirrored.Filled.ArrowBack, s.backToLibrary, onBack)
+            IconBtn(
+                Icons.AutoMirrored.Filled.ArrowBack, s.backToLibrary, onBack
+            )
+            if (sleepDeadline != null) {
+                // удержание 1 с на чипе закрывает таймер (дубль кнопки в шторке)
+                Chip(
+                    Icons.Filled.Timer,
+                    formatMs(sleepRemainMs),
+                    trailingIcon = Icons.Filled.Close,
+                    modifier = Modifier.holdToggle(timeoutMs = 1_000) { SleepTimer.cancel() },
+                )
+            }
             Text(
                 s.nowPlaying,
                 Modifier.weight(1f),
@@ -379,10 +405,15 @@ private fun vinylBrush(): Brush {
 /* ==================== чип ==================== */
 
 @Composable
-private fun Chip(icon: ImageVector, text: String) {
+private fun Chip(
+    icon: ImageVector,
+    text: String,
+    modifier: Modifier = Modifier,
+    trailingIcon: ImageVector? = null,
+) {
     val fs = Fs.c
     Row(
-        Modifier
+        modifier
             .clip(RoundedCornerShape(20.dp))
             .background(fs.surf2)
             .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -398,6 +429,9 @@ private fun Chip(icon: ImageVector, text: String) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (trailingIcon != null) {
+            Icon(trailingIcon, contentDescription = null, tint = fs.on3, modifier = Modifier.size(11.dp))
+        }
     }
 }
 

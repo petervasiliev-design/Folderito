@@ -155,6 +155,7 @@ fun LibraryScreen(
     onSetTheme: (ThemeMode) -> Unit,
     onOpenPlayer: () -> Unit,
     onOpenEq: () -> Unit,
+    onOpenSleepTimer: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val fs = Fs.c
@@ -298,6 +299,10 @@ fun LibraryScreen(
                 onOpenEq = {
                     drawerOpen = false
                     onOpenEq()
+                },
+                onOpenSleepTimer = {
+                    drawerOpen = false
+                    onOpenSleepTimer()
                 },
                 onOpenSettings = {
                     drawerOpen = false

@@ -91,6 +91,18 @@ class PlaybackService : MediaSessionService() {
                 savePlaybackState()
             }
         }
+
+        // таймер сна: по истечении дедлайна пауза и снятие таймера
+        scope.launch {
+            while (true) {
+                delay(500)
+                val deadline = SleepTimer.deadlineMs.value ?: continue
+                if (System.currentTimeMillis() >= deadline) {
+                    mediaSession?.player?.pause()
+                    SleepTimer.cancel()
+                }
+            }
+        }
     }
 
     private suspend fun savePlaybackState() {

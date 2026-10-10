@@ -27,6 +27,7 @@ sealed class Screen(val depth: Int) {
     data object Library : Screen(0)
     data object Player : Screen(1)
     data object Settings : Screen(1)
+    data object Sleep : Screen(1)
     data object Songs : Screen(2)
     data object Eq : Screen(3)
 }
@@ -93,7 +94,11 @@ fun AppNav(
                 onSetTheme = onSetTheme,
                 onOpenPlayer = { push(Screen.Player) },
                 onOpenEq = { push(Screen.Eq) },
+                onOpenSleepTimer = { push(Screen.Sleep) },
                 onOpenSettings = { push(Screen.Settings) },
+            )
+            Screen.Sleep -> com.foldersound.ui.sleep.SleepTimerScreen(
+                onBack = { pop() },
             )
             Screen.Settings -> com.foldersound.ui.settings.SettingsScreen(
                 onBack = { pop() },

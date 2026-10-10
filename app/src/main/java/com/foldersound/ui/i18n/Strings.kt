@@ -105,6 +105,11 @@ data class FsStrings(
     val langSystem: String,
     val langRu: String,
     val langEn: String,
+    val sleepTimerSection: String,
+    val sleepCustom: String,
+    val sleepRemaining: String,
+    val sleepCancel: String,
+    val sleepStart: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -216,6 +221,11 @@ private val RuStrings = FsStrings(
     langSystem = "Системный",
     langRu = "Русский",
     langEn = "English",
+    sleepTimerSection = "Таймер сна",
+    sleepCustom = "Своё",
+    sleepRemaining = "Осталось",
+    sleepCancel = "Закрыть таймер (удержание 1 с)",
+    sleepStart = "Запустить",
 )
 
 private val EnStrings = FsStrings(
@@ -302,6 +312,11 @@ private val EnStrings = FsStrings(
     langSystem = "System",
     langRu = "Русский",
     langEn = "English",
+    sleepTimerSection = "Sleep timer",
+    sleepCustom = "Custom",
+    sleepRemaining = "Time left",
+    sleepCancel = "Cancel timer (hold 1 s)",
+    sleepStart = "Start",
 )
 
 fun stringsFor(langCode: String): FsStrings = if (langCode == "en") EnStrings else RuStrings
