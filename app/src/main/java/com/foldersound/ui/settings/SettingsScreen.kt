@@ -1,5 +1,10 @@
 package com.foldersound.ui.settings
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
@@ -36,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -213,6 +220,58 @@ fun SettingsScreen(
                     },
                     onDragEnd = { dragging = false },
                 )
+            }
+
+            // защита от энергосберегающих оптимизаций (критично для Xiaomi/Huawei)
+            val context = LocalContext.current
+            val powerManager = remember {
+                context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            }
+            if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(fs.surf)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) {
+                            try {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                                        .setData(Uri.parse("package:${context.packageName}"))
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            } catch (_: Exception) {
+                            }
+                        }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.BatteryAlert,
+                        contentDescription = null,
+                        tint = fs.accent,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(
+                            s.batteryTitle,
+                            color = fs.on,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.W700,
+                        )
+                        Text(
+                            s.batteryHint,
+                            Modifier.padding(top = 2.dp),
+                            color = fs.on2,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.W600,
+                        )
+                    }
+                }
             }
         }
     }

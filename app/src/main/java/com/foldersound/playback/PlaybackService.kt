@@ -5,13 +5,18 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
 import android.provider.MediaStore
+import android.view.KeyEvent
+import androidx.core.content.IntentCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.foldersound.FsApp
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.SettableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,6 +48,8 @@ class PlaybackService : MediaSessionService() {
                 /* handleAudioFocus = */ true,
             )
             .setWakeMode(C.WAKE_MODE_LOCAL)
+            // отключились наушники/BT — пауза; позиция и так сохраняется циклом ниже
+            .setHandleAudioBecomingNoisy(true)
             .build()
 
         if (sessionId != AudioManager.ERROR) {
@@ -54,7 +61,72 @@ class PlaybackService : MediaSessionService() {
             eqManager = EqualizerManager(sessionId)
         }
 
-        mediaSession = MediaSession.Builder(this, player).build()
+        mediaSession = MediaSession.Builder(this, player)
+            .setCallback(object : MediaSession.Callback {
+                override fun onMediaButtonEvent(
+                    session: MediaSession,
+                    controllerInfo: MediaSession.ControllerInfo,
+                    mediaButtonEvent: Intent,
+                ): Boolean {
+                    if (mediaButtonEvent.action == Intent.ACTION_MEDIA_BUTTON) {
+                        val event = IntentCompat.getParcelableExtra(
+                            mediaButtonEvent, Intent.EXTRA_KEY_EVENT, KeyEvent::class.java
+                        )
+                        // магнитола глушит машину: STOP трактуем как паузу,
+                        // не разрушая сессию — BT-возврат продолжит с того же места
+                        if (event != null &&
+                            event.action == KeyEvent.ACTION_DOWN &&
+                            event.keyCode == KeyEvent.KEYCODE_MEDIA_STOP
+                        ) {
+                            player.pause()
+                            return true
+                        }
+                    }
+                    return super.onMediaButtonEvent(session, controllerInfo, mediaButtonEvent)
+                }
+
+                /**
+                 * Процесс убит системой, а магнитола нажала play: сессия пуста —
+                 * отдаём сохранённые очередь, трек и позицию, фреймворк запустит сам.
+                 */
+                override fun onPlaybackResumption(
+                    mediaSession: MediaSession,
+                    controllerInfo: MediaSession.ControllerInfo,
+                ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+                    val future = SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
+                    scope.launch {
+                        try {
+                            val settings = (application as FsApp).settings
+                            val (trackId, positionMs) = settings.loadPlayback()
+                            val saved = if (trackId >= 0) settings.loadQueue() else null
+                            val order = (saved?.first ?: if (trackId >= 0) listOf(trackId) else emptyList())
+                                .filter { it > 0 }
+                            if (!order.contains(trackId)) {
+                                throw IllegalStateException("Nothing to resume")
+                            }
+                            val items = order.map { id ->
+                                MediaItem.Builder()
+                                    .setMediaId(id.toString())
+                                    .setUri(
+                                        ContentUris.withAppendedId(
+                                            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id
+                                        )
+                                    )
+                                    .build()
+                            }
+                            future.set(
+                                MediaSession.MediaItemsWithStartPosition(
+                                    items, order.indexOf(trackId), positionMs
+                                )
+                            )
+                        } catch (e: Exception) {
+                            future.setException(e)
+                        }
+                    }
+                    return future
+                }
+            })
+            .build()
 
         // битый/недоступный файл посреди сессии: плавно переходим к следующему треку
         player.addListener(object : androidx.media3.common.Player.Listener {

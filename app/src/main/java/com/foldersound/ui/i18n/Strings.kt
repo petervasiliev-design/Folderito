@@ -113,6 +113,8 @@ data class FsStrings(
     val clearAllConfirm: String,
     val cancel: String,
     val unavailable: String,
+    val batteryTitle: String,
+    val batteryHint: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -232,6 +234,8 @@ private val RuStrings = FsStrings(
     clearAllConfirm = "Убрать выделение со всех папок и треков?",
     cancel = "Отмена",
     unavailable = "недоступен",
+    batteryTitle = "Батарея",
+    batteryHint = "Разрешить работу в фоне, чтобы музыка не прерывалась",
 )
 
 private val EnStrings = FsStrings(
@@ -326,6 +330,8 @@ private val EnStrings = FsStrings(
     clearAllConfirm = "Remove selection from all folders and tracks?",
     cancel = "Cancel",
     unavailable = "unavailable",
+    batteryTitle = "Battery",
+    batteryHint = "Allow background operation so music keeps playing",
 )
 
 fun stringsFor(langCode: String): FsStrings = if (langCode == "en") EnStrings else RuStrings
