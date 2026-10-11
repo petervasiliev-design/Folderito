@@ -61,6 +61,9 @@ fun skinFromShort(
             folderGradEnd = darken(sec, 0.28f),
             standardGradStart = lighten(a, 0.14f),
             standardGradEnd = a,
+            // плейлисты: чуть светлее музыкальных папок (standardGrad)
+            playlistGradStart = lighten(a, 0.24f),
+            playlistGradEnd = lighten(a, 0.10f),
             fabGradStart = lighten(p, 0.16f),
             coverGradStart = lighten(a, 0.22f),
             coverGradEnd = darken(a, 0.38f),

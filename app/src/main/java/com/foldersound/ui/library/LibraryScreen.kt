@@ -86,6 +86,7 @@ import com.foldersound.ui.i18n.LocalStrings
 import com.foldersound.ui.theme.ThemeMode
 import com.foldersound.data.FolderNode
 import com.foldersound.data.Library
+import com.foldersound.data.Playlist
 import com.foldersound.data.StandardFolders
 import com.foldersound.data.Track
 import com.foldersound.ui.common.CheckState
@@ -113,7 +114,49 @@ import kotlinx.coroutines.delay
 private sealed interface Row {
     data class Label(val text: String) : Row
     data class FolderRow(val node: FolderNode, val depth: Int, val tag: String? = null) : Row
-    data class TrackRow(val track: Track, val depth: Int, val tag: String? = null) : Row
+    data class TrackRow(
+        val track: Track,
+        val depth: Int,
+        val tag: String? = null,
+        // трек может входить в несколько плейлистов — ключ должен остаться уникальным
+        val keySuffix: String = "",
+    ) : Row
+
+    /** Синтетическая папка «Плейлисты» — первая плитка корня. */
+    data class PlaylistFolderRow(val playlistsCount: Int, val tracksCount: Int) : Row
+    data class PlaylistRow(val playlist: Playlist, val depth: Int) : Row
+}
+
+private const val PLAYLISTS_KEY = "@playlists"
+
+private fun buildRows(
+    lib: Library,
+    expanded: Set<String>,
+    foldersLabel: String,
+    tracksLabel: String,
+): List<Row> {
+    val out = mutableListOf<Row>()
+    val playlists = lib.playlists
+    if (playlists.isNotEmpty()) {
+        out += Row.PlaylistFolderRow(
+            playlistsCount = playlists.size,
+            tracksCount = playlists.sumOf { it.tracks.size },
+        )
+        if (expanded.contains(PLAYLISTS_KEY)) {
+            playlists.forEach { playlist ->
+                out += Row.PlaylistRow(playlist, depth = 1)
+                if (expanded.contains(playlist.path)) {
+                    // подпись на черте — только у блоков с достаточным числом строк (≥3)
+                    val tag = if (playlist.tracks.size >= 3) playlist.name else null
+                    playlist.tracks.forEach {
+                        out += Row.TrackRow(it, depth = 2, tag = tag, keySuffix = "#p${playlist.path}")
+                    }
+                }
+            }
+        }
+    }
+    out += flatten(lib.root, expanded, 0, true, foldersLabel, tracksLabel)
+    return out
 }
 
 private fun flatten(
@@ -136,7 +179,7 @@ private fun flatten(
                     if (index == 0) when (row) {
                         is Row.FolderRow -> row.copy(tag = child.name)
                         is Row.TrackRow -> row.copy(tag = child.name)
-                        is Row.Label -> row
+                        else -> row
                     } else row
                 }
             } else {
@@ -564,7 +607,7 @@ private fun TreeList(
     val fs = Fs.c
     val s = LocalStrings.current
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val rows = remember(lib, expanded, s) { flatten(lib.root, expanded, 0, true, s.folders, s.tracks) }
+    val rows = remember(lib, expanded, s) { buildRows(lib, expanded, s.folders, s.tracks) }
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp + navBottom),
@@ -573,7 +616,9 @@ private fun TreeList(
             when (it) {
                 is Row.Label -> "l${it.text}"
                 is Row.FolderRow -> "f${it.node.path}"
-                is Row.TrackRow -> "t${it.track.id}"
+                is Row.TrackRow -> "t${it.track.id}${it.keySuffix}"
+                is Row.PlaylistFolderRow -> "f$PLAYLISTS_KEY"
+                is Row.PlaylistRow -> "p${it.playlist.path}"
             }
         }) { row ->
             when (row) {
@@ -607,6 +652,21 @@ private fun TreeList(
                     onPlay = null,
                     selected = selected.contains(row.track.id),
                     isPlaying = isPlaying,
+                )
+                is Row.PlaylistFolderRow -> PlaylistFolderRowView(
+                    playlistsCount = row.playlistsCount,
+                    tracksCount = row.tracksCount,
+                    expandedNow = expanded.contains(PLAYLISTS_KEY),
+                    onToggleExpand = { vm.toggleFolder(PLAYLISTS_KEY) },
+                )
+                is Row.PlaylistRow -> PlaylistRowView(
+                    playlist = row.playlist,
+                    depth = row.depth,
+                    expandedNow = expanded.contains(row.playlist.path),
+                    checkState = vm.playlistCheckState(row.playlist),
+                    onToggleSel = { vm.togglePlaylistSelection(row.playlist) },
+                    onToggleExpand = { vm.toggleFolder(row.playlist.path) },
+                    onPlay = { vm.playPlaylist(row.playlist) },
                 )
             }
         }
@@ -732,6 +792,182 @@ private fun FolderRowView(
                     .rotate(if (expandedNow) 90f else 0f),
             )
         }
+    }
+}
+
+/* ==================== плейлисты ==================== */
+
+/** Синтетическая плитка «Плейлисты» — первая в корне; цвет родственный музыкальным папкам. */
+@Composable
+private fun PlaylistFolderRowView(
+    playlistsCount: Int,
+    tracksCount: Int,
+    expandedNow: Boolean,
+    onToggleExpand: () -> Unit,
+) {
+    val fs = Fs.c
+    val s = LocalStrings.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    Box(Modifier.nestLine(0, fs)) {
+        Row(
+            Modifier
+                .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(15.dp))
+                .background(
+                    if (pressed) Brush.linearGradient(
+                        listOf(
+                            fs.playlistGradStart.copy(alpha = 0.88f),
+                            fs.playlistGradEnd.copy(alpha = 0.88f),
+                        )
+                    ) else Brush.linearGradient(listOf(fs.playlistGradStart, fs.playlistGradEnd))
+                )
+                .clickable(interactionSource = interaction, indication = null, onClick = onToggleExpand)
+                .padding(start = 7.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                if (expandedNow) FsIcons.FolderOpen else FsIcons.Folder,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.padding(start = 2.dp).size(32.dp),
+            )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(start = 11.dp)
+            ) {
+                Text(
+                    s.playlists,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W700,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    buildString {
+                        append(s.plural(playlistsCount, s.pPlaylists))
+                        if (tracksCount > 0) append(" · ${s.plural(tracksCount, s.pTracks)}")
+                    },
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(
+                Icons.Outlined.KeyboardArrowRight,
+                contentDescription = if (expandedNow) s.collapse else s.expand,
+                tint = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier
+                    .size(20.dp)
+                    .rotate(if (expandedNow) 90f else 0f),
+            )
+        }
+    }
+}
+
+/** Плитка плейлиста: тап — раскрыть, удержание — играть, галочка удержанием — выделить. */
+@Composable
+private fun PlaylistRowView(
+    playlist: Playlist,
+    depth: Int,
+    expandedNow: Boolean,
+    checkState: CheckState,
+    onToggleSel: () -> Unit,
+    onToggleExpand: () -> Unit,
+    onPlay: () -> Unit,
+) {
+    val fs = Fs.c
+    val s = LocalStrings.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val view = LocalView.current
+    Box(Modifier.nestLine(depth, fs)) {
+        Row(
+            Modifier
+                .padding(
+                    start = 10.dp + NestIndentStep * depth,
+                    end = 10.dp,
+                    top = 2.dp,
+                    bottom = 2.dp,
+                )
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(15.dp))
+                .background(
+                    if (pressed) Brush.linearGradient(
+                        listOf(
+                            fs.playlistGradStart.copy(alpha = 0.88f),
+                            fs.playlistGradEnd.copy(alpha = 0.88f),
+                        )
+                    ) else Brush.linearGradient(listOf(fs.playlistGradStart, fs.playlistGradEnd))
+                )
+                .clickable(interactionSource = interaction, indication = null, onClick = onToggleExpand)
+                .padding(start = 7.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(38.dp, 44.dp)
+                    .clip(CircleShape)
+                    .holdToggle {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        onToggleSel()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                TriCheck(state = checkState, onFolderRow = true, modifier = Modifier.size(38.dp, 44.dp))
+            }
+            Icon(
+                FsIcons.SoundWave,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.padding(start = 2.dp).size(32.dp),
+            )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(start = 11.dp)
+            ) {
+                Text(
+                    playlist.name,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W700,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    "${s.plural(playlist.tracks.size, s.pTracks)} · ≈ ${s.formatTotalMs(playlist.totalMs)}",
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(
+                Icons.Outlined.KeyboardArrowRight,
+                contentDescription = if (expandedNow) s.collapse else s.expand,
+                tint = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier
+                    .size(20.dp)
+                    .rotate(if (expandedNow) 90f else 0f),
+            )
+        }
+        // удержание правее галочки — играть плейлист целиком; зона галочки не перекрыта
+        Box(
+            Modifier
+                .matchParentSize()
+                .padding(start = 52.dp)
+                .holdToggle {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                    onPlay()
+                },
+        )
     }
 }
 

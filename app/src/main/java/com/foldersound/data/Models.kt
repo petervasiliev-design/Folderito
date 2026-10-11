@@ -28,6 +28,18 @@ data class Track(
     }
 }
 
+/** Плейлист, найденный в библиотеке как файл .m3u/.m3u8. */
+data class Playlist(
+    val id: Long,
+    val name: String,
+    /** Абсолютный путь к файлу плейлиста. */
+    val path: String,
+    /** Треки в порядке следования в файле (несуществующие пути пропущены). */
+    val tracks: List<Track>,
+) {
+    val totalMs: Long get() = tracks.sumOf { it.durationMs }
+}
+
 /** Узел дерева папок. path — абсолютный путь, name — имя папки. */
 class FolderNode(val path: String, val name: String) {
 
@@ -56,6 +68,7 @@ data class Library(
     val allTracks: List<Track>,
     val foldersCount: Int,
     val totalMs: Long,
+    val playlists: List<Playlist> = emptyList(),
 ) {
     val trackById: Map<Long, Track> = allTracks.associateBy { it.id }
 

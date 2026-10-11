@@ -26,6 +26,8 @@ data class FsColors(
     val folderGradEnd: Color,
     val standardGradStart: Color,
     val standardGradEnd: Color,
+    val playlistGradStart: Color,
+    val playlistGradEnd: Color,
     val fabGradStart: Color,
     val coverGradStart: Color,
     val coverGradEnd: Color,
@@ -51,6 +53,9 @@ val DarkFsColors = FsColors(
     folderGradEnd = Color(0xFF8895A5),
     standardGradStart = Color(0xFFAF8D68),
     standardGradEnd = Color(0xFF896742),
+    // плейлисты: тот же коричневый тон, что у музыкальных папок, чуть светлее
+    playlistGradStart = Color(0xFFC2A17E),
+    playlistGradEnd = Color(0xFFA28258),
     fabGradStart = Color(0xFF3E577B),
     coverGradStart = Color(0xFF8996A6),
     coverGradEnd = Color(0xFF283C57),
@@ -76,6 +81,9 @@ val LightFsColors = FsColors(
     folderGradEnd = Color(0xFF8895A5),
     standardGradStart = Color(0xFFAF8D68),
     standardGradEnd = Color(0xFF896742),
+    // плейлисты: тот же коричневый тон, что у музыкальных папок, чуть светлее
+    playlistGradStart = Color(0xFFC2A17E),
+    playlistGradEnd = Color(0xFFA28258),
     fabGradStart = Color(0xFF3E577B),
     coverGradStart = Color(0xFF8996A6),
     coverGradEnd = Color(0xFF283C57),

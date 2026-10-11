@@ -84,7 +84,90 @@ class MusicRepository(private val context: Context) {
         }
 
         val sorted = tracks.sortedWith { a, b -> collator.compare(a.title, b.title) }
-        buildLibrary(sorted)
+        val library = buildLibrary(sorted)
+        val playlists = loadPlaylists(library) // уже внутри Dispatchers.IO
+        Library(
+            root = library.root,
+            rootPath = library.rootPath,
+            allTracks = library.allTracks,
+            foldersCount = library.foldersCount,
+            totalMs = library.totalMs,
+            playlists = playlists,
+        )
+    }
+
+    /**
+     * Плейлисты: один запрос MediaStore.Files на файлы m3u и m3u8 (без обхода
+     * каталогов), затем разбор каждого файла и сопоставление путей с треками.
+     */
+    private fun loadPlaylists(library: Library): List<Playlist> {
+        if (library.allTracks.isEmpty()) return emptyList()
+        val paths = mutableListOf<String>()
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Files.getContentUri("external")
+        }
+        try {
+            context.contentResolver.query(
+                collection,
+                arrayOf(MediaStore.Files.FileColumns.DATA),
+                "${MediaStore.Files.FileColumns.DATA} LIKE ? OR ${MediaStore.Files.FileColumns.DATA} LIKE ?",
+                arrayOf("%.m3u", "%.m3u8"),
+                null,
+            )?.use { c ->
+                val iData = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA)
+                while (c.moveToNext()) {
+                    val p = c.getString(iData)
+                    if (!p.isNullOrBlank()) paths.add(p)
+                }
+            }
+        } catch (e: Exception) {
+            return emptyList() // таблица Files недоступна — плейлисты просто не показываем
+        }
+
+        // нормализованный путь → трек: регистр и «file://» не важны
+        val byPath = HashMap<String, Track>(library.allTracks.size * 2)
+        for (t in library.allTracks) byPath[t.path.trim().lowercase()] = t
+
+        val out = ArrayList<Playlist>()
+        for (filePath in paths) {
+            val file = File(filePath)
+            if (!file.isFile) continue
+            val resolved = ArrayList<Track>()
+            val seen = HashSet<Long>()
+            try {
+                file.useLines { lines ->
+                    for (raw in lines) {
+                        val line = raw.trim()
+                        if (line.isEmpty() || line.startsWith("#")) continue
+                        val p = line.removePrefix("file://")
+                        val normalized = when {
+                            p.startsWith("/") -> p
+                            // Windows-путь из плейлиста с ПК — отбрасываем диск
+                            p.length > 2 && p[1] == ':' -> null
+                            else -> file.parent + "/" + p.removePrefix("./")
+                        } ?: continue
+                        val track = byPath[normalized.trim().lowercase()] ?: continue
+                        if (seen.add(track.id)) resolved.add(track)
+                    }
+                }
+            } catch (e: Exception) {
+                continue // битый файл пропускаем целиком
+            }
+            if (resolved.isEmpty()) continue
+            val name = file.nameWithoutExtension
+            out.add(
+                Playlist(
+                    id = filePath.lowercase().hashCode().toLong() and 0x7FFFFFFFL,
+                    name = name,
+                    path = filePath,
+                    tracks = resolved,
+                )
+            )
+        }
+        out.sortWith { a, b -> collator.compare(a.name, b.name) }
+        return out
     }
 
     private fun buildLibrary(sortedTracks: List<Track>): Library {

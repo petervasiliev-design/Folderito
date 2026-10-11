@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.foldersound.FsApp
 import com.foldersound.data.FolderNode
 import com.foldersound.data.Library
+import com.foldersound.data.Playlist
 import com.foldersound.data.Track
 import com.foldersound.playback.PlayerConnection
 import com.foldersound.ui.common.CheckState
@@ -156,5 +157,37 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun playFrom(list: List<Track>, index: Int) {
         connection.playQueue(list, index)
+    }
+
+    /* ==================== плейлисты ==================== */
+
+    /** Удержание на плитке плейлиста: играть весь плейлист с начала. */
+    fun playPlaylist(playlist: Playlist) {
+        if (playlist.tracks.isEmpty()) return
+        connection.playQueue(playlist.tracks, 0)
+    }
+
+    /** Трёхцветный чекбокс плитки плейлиста — по составу плейлиста. */
+    fun playlistCheckState(playlist: Playlist): CheckState {
+        val all = playlist.tracks
+        if (all.isEmpty()) return CheckState.Off
+        val sel = selected.value
+        val n = all.count { sel.contains(it.id) }
+        return when {
+            n == 0 -> CheckState.Off
+            n == all.size -> CheckState.On
+            else -> CheckState.Mixed
+        }
+    }
+
+    /** Удержание на галочке плитки: отметить/снять весь плейлист. */
+    fun togglePlaylistSelection(playlist: Playlist) {
+        val next = selected.value.toMutableSet()
+        if (playlistCheckState(playlist) == CheckState.On) {
+            playlist.tracks.forEach { next.remove(it.id) }
+        } else {
+            playlist.tracks.forEach { next.add(it.id) }
+        }
+        setSelected(next)
     }
 }
