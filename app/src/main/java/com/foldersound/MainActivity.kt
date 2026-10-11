@@ -80,6 +80,8 @@ class MainActivity : ComponentActivity() {
                 .collectAsStateWithLifecycle(true)
             val seekStep by fsApp.settings.seekStepSec
                 .collectAsStateWithLifecycle(10)
+            val playbackSpeed by fsApp.settings.playbackSpeed
+                .collectAsStateWithLifecycle(1f)
             CompositionLocalProvider(LocalStrings provides stringsFor(langCode)) {
                 FsTheme(themeMode, skinId) {
                     AppRoot(
@@ -103,6 +105,11 @@ class MainActivity : ComponentActivity() {
                         seekStepSec = seekStep,
                         onSetSeekStep = { sec ->
                             lifecycleScope.launch { fsApp.settings.setSeekStepSec(sec) }
+                        },
+                        playbackSpeed = playbackSpeed,
+                        onSetPlaybackSpeed = { speed ->
+                            fsApp.playerConnection.setPlaybackSpeed(speed)
+                            lifecycleScope.launch { fsApp.settings.savePlaybackSpeed(speed) }
                         },
                         onPermissionGranted = { vm.load() },
                     )
@@ -173,6 +180,8 @@ private fun AppRoot(
     onSetSeekButtons: (Boolean) -> Unit,
     seekStepSec: Int,
     onSetSeekStep: (Int) -> Unit,
+    playbackSpeed: Float,
+    onSetPlaybackSpeed: (Float) -> Unit,
     onPermissionGranted: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -209,6 +218,8 @@ private fun AppRoot(
             onSetSeekButtons = onSetSeekButtons,
             seekStepSec = seekStepSec,
             onSetSeekStep = onSetSeekStep,
+            playbackSpeed = playbackSpeed,
+            onSetPlaybackSpeed = onSetPlaybackSpeed,
         )
     } else {
         PermissionScreen(

@@ -414,6 +414,11 @@ class PlayerConnection(context: Context) {
         scope.launch { reorderQueue(enabled) }
     }
 
+    /** Скорость воспроизведения 0.5..2.0. */
+    fun setPlaybackSpeed(speed: Float) {
+        ctrl()?.setPlaybackSpeed(speed.coerceIn(0.5f, 2f))
+    }
+
     /** Цикл режимов повтора: выкл → все → один трек → выкл. */
     fun cycleRepeat() {
         val c = ctrl() ?: return

@@ -115,6 +115,8 @@ data class FsStrings(
     val unavailable: String,
     val batteryTitle: String,
     val batteryHint: String,
+    val playbackSettingsTitle: String,
+    val speedTitle: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -236,6 +238,8 @@ private val RuStrings = FsStrings(
     unavailable = "недоступен",
     batteryTitle = "Батарея",
     batteryHint = "Разрешить работу в фоне, чтобы музыка не прерывалась",
+    playbackSettingsTitle = "Настройки воспроизведения",
+    speedTitle = "Скорость воспроизведения",
 )
 
 private val EnStrings = FsStrings(
@@ -332,6 +336,8 @@ private val EnStrings = FsStrings(
     unavailable = "unavailable",
     batteryTitle = "Battery",
     batteryHint = "Allow background operation so music keeps playing",
+    playbackSettingsTitle = "Playback settings",
+    speedTitle = "Playback speed",
 )
 
 fun stringsFor(langCode: String): FsStrings = if (langCode == "en") EnStrings else RuStrings

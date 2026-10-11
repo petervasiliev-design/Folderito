@@ -1,5 +1,6 @@
 package com.foldersound.playback
 
+import android.app.PendingIntent
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
@@ -61,7 +62,16 @@ class PlaybackService : MediaSessionService() {
             eqManager = EqualizerManager(sessionId)
         }
 
+        // тап по уведомлению плеера открывает приложение
+        val sessionActivity = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, com.foldersound.MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
         mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(sessionActivity)
             .setCallback(object : MediaSession.Callback {
                 override fun onMediaButtonEvent(
                     session: MediaSession,
@@ -148,6 +158,8 @@ class PlaybackService : MediaSessionService() {
         scope.launch {
             val settings = (application as FsApp).settings
             val (trackId, positionMs) = settings.loadPlayback()
+            // скорость из прошлой сессии применяется к плееру сразу
+            player.setPlaybackSpeed(settings.loadPlaybackSpeed())
             val saved = if (trackId >= 0) settings.loadQueue() else null
             val restored = saved?.let { (order, _) ->
                 if (!order.contains(trackId)) return@let false

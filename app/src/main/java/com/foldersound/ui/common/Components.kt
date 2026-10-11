@@ -46,9 +46,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
@@ -593,38 +595,47 @@ fun Modifier.holdToggle(
  * (Initial pass) — раньше кликабельных детей, поэтому работает поверх
  * списков со строками. После срабатывания «добивает» жест, чтобы дети
  * не получили случайный клик.
+ *
+ * [enabled] = false отключает свайпы посреди жеста: так плеер гасит их,
+ * когда жест начался на ползунке перемотки.
  */
 fun Modifier.horizontalSwipes(
     onSwipeLeft: (() -> Unit)? = null,
     onSwipeRight: (() -> Unit)? = null,
     threshold: Dp = 100.dp,
-): Modifier = pointerInput(Unit) {
-    val thrPx = threshold.toPx()
-    awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-        var acc = 0f
-        var fired = false
-        while (!fired) {
-            val event = awaitPointerEvent(PointerEventPass.Initial)
-            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-            if (!change.pressed) break
-            acc += change.positionChange().x
-            when {
-                acc < -thrPx && onSwipeLeft != null -> {
-                    onSwipeLeft()
-                    fired = true
-                }
-                acc > thrPx && onSwipeRight != null -> {
-                    onSwipeRight()
-                    fired = true
+    enabled: Boolean = true,
+): Modifier = composed {
+    val currentEnabled by rememberUpdatedState(enabled)
+    pointerInput(Unit) {
+        val thrPx = threshold.toPx()
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (!currentEnabled) return@awaitEachGesture
+            var acc = 0f
+            var fired = false
+            while (!fired) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+                if (!currentEnabled) return@awaitEachGesture
+                acc += change.positionChange().x
+                when {
+                    acc < -thrPx && onSwipeLeft != null -> {
+                        onSwipeLeft()
+                        fired = true
+                    }
+                    acc > thrPx && onSwipeRight != null -> {
+                        onSwipeRight()
+                        fired = true
+                    }
                 }
             }
-        }
-        if (fired) {
-            while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
-                event.changes.forEach { it.consume() }
-                if (event.changes.none { any -> any.pressed }) break
+            if (fired) {
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    event.changes.forEach { it.consume() }
+                    if (event.changes.none { any -> any.pressed }) break
+                }
             }
         }
     }

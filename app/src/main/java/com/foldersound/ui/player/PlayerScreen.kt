@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
@@ -86,6 +87,7 @@ fun PlayerScreen(
     pathText: String,
     onBack: () -> Unit,
     onOpenEq: () -> Unit,
+    onOpenPlaybackSettings: () -> Unit,
     onOpenSongs: () -> Unit,
     seekButtonsShown: Boolean = true,
     seekStepSec: Int = 10,
@@ -129,8 +131,13 @@ fun PlayerScreen(
             .background(fs.bg)
             .statusBarsPadding()
             .navigationBarsPadding()
-            // свайп влево — список песен, свайп вправо — назад в дерево
-            .horizontalSwipes(onSwipeLeft = onOpenSongs, onSwipeRight = onBack)
+            // свайп влево — список песен, свайп вправо — назад в дерево;
+            // пока тянется ползунок перемотки — свайпы выключены
+            .horizontalSwipes(
+                onSwipeLeft = onOpenSongs,
+                onSwipeRight = onBack,
+                enabled = !dragging,
+            )
     ) {
         // шапка
         Row(
@@ -163,6 +170,11 @@ fun PlayerScreen(
                 s.equalizer,
                 onOpenEq,
                 modifier = Modifier.eqDot(eqState.enabled, fs.accent),
+            )
+            IconBtn(
+                Icons.Filled.Speed,
+                s.playbackSettingsTitle,
+                onOpenPlaybackSettings,
             )
             IconBtn(
                 Icons.AutoMirrored.Filled.ArrowForward,

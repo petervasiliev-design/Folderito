@@ -3,6 +3,7 @@ package com.foldersound.data
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -34,6 +35,7 @@ class SettingsStore(private val context: Context) {
         val PB_POS = longPreferencesKey("pb_position_ms")
         val PB_QUEUE = stringPreferencesKey("pb_queue")
         val PB_QUEUE_BASE = stringPreferencesKey("pb_queue_base")
+        val PB_SPEED = floatPreferencesKey("pb_speed")
         val SHUFFLE = booleanPreferencesKey("shuffle")
         val REPEAT = intPreferencesKey("repeat_mode")
         val SEEK_BUTTONS = booleanPreferencesKey("seek_buttons")
@@ -163,6 +165,18 @@ class SettingsStore(private val context: Context) {
             it.remove(Keys.PB_QUEUE)
             it.remove(Keys.PB_QUEUE_BASE)
         }
+    }
+
+    /** Скорость воспроизведения 0.5..2.0 (для музыки и аудиокниг). */
+    val playbackSpeed: Flow<Float> = context.dataStore.data.map {
+        (it[Keys.PB_SPEED] ?: 1f).coerceIn(0.5f, 2f)
+    }
+
+    suspend fun loadPlaybackSpeed(): Float =
+        (context.dataStore.data.first()[Keys.PB_SPEED] ?: 1f).coerceIn(0.5f, 2f)
+
+    suspend fun savePlaybackSpeed(speed: Float) {
+        context.dataStore.edit { it[Keys.PB_SPEED] = speed.coerceIn(0.5f, 2f) }
     }
 
     /** Флаги перемешивания и повтора. */

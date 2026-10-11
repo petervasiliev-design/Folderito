@@ -28,6 +28,7 @@ sealed class Screen(val depth: Int) {
     data object Player : Screen(1)
     data object Settings : Screen(1)
     data object Sleep : Screen(1)
+    data object PlaybackSettings : Screen(2)
     data object Songs : Screen(2)
     data object Eq : Screen(3)
 }
@@ -48,6 +49,8 @@ fun AppNav(
     onSetSeekButtons: (Boolean) -> Unit,
     seekStepSec: Int,
     onSetSeekStep: (Int) -> Unit,
+    playbackSpeed: Float,
+    onSetPlaybackSpeed: (Float) -> Unit,
 ) {
     val stack = remember { mutableStateListOf<Screen>(Screen.Library) }
     val current = stack.last()
@@ -123,9 +126,15 @@ fun AppNav(
                 pathText = pathText,
                 onBack = { pop() },
                 onOpenEq = { push(Screen.Eq) },
+                onOpenPlaybackSettings = { push(Screen.PlaybackSettings) },
                 onOpenSongs = { push(Screen.Songs) },
                 seekButtonsShown = seekButtonsShown,
                 seekStepSec = seekStepSec,
+            )
+            Screen.PlaybackSettings -> com.foldersound.ui.settings.PlaybackSettingsScreen(
+                onBack = { pop() },
+                speed = playbackSpeed,
+                onSetSpeed = onSetPlaybackSpeed,
             )
             Screen.Eq -> EqualizerScreen(
                 onBack = { pop() },
