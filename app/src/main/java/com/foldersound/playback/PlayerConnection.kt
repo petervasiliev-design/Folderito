@@ -13,19 +13,27 @@ import com.foldersound.data.Track
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /**
  * Подключение UI к PlaybackService через MediaController.
  * Живёт столько же, сколько приложение.
+ *
+ * Система (особенно Samsung Freecess) может убить сервис, когда тот не в
+ * foreground (пауза/пустая очередь) — тогда сессия умирает, а контроллер
+ * становится «зомби»: UI застывает на старом состоянии, все команды теряются.
+ * Поэтому разрыв отслеживается и контроллер пересобирается автоматически.
  */
 class PlayerConnection(context: Context) {
 
     private val appContext = context.applicationContext
     private var future: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
+    private var reconnectJob: Job? = null
 
     companion object {
         const val EXTERNAL_ID = "external"
@@ -45,8 +53,33 @@ class PlayerConnection(context: Context) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    /** Контроллер, только пока подключение живо; иначе null (команды не идут). */
+    private fun ctrl(): MediaController? = controller?.takeIf { it.isConnected }
+
+    /** Слушатель жизненного цикла контроллера: разрыв → пересборка. */
+    private val sessionListener = object : MediaController.Listener {
+        override fun onDisconnected(controller: MediaController) {
+            scheduleReconnect()
+        }
+    }
+
+    private fun scheduleReconnect() {
+        if (reconnectJob?.isActive == true) return
+        reconnectJob = scope.launch {
+            delay(300) // дать сервису перезапуститься
+            try {
+                controller?.release()
+            } catch (_: Exception) {
+            }
+            controller = null
+            future = null
+            ready.value = false
+            connect()
+        }
+    }
+
     private fun refreshQueue() {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         val ids = ArrayList<Long>(c.getMediaItemCount())
         for (i in 0 until c.getMediaItemCount()) {
             c.getMediaItemAt(i).mediaId.toLongOrNull()?.let { ids.add(it) }
@@ -86,7 +119,9 @@ class PlayerConnection(context: Context) {
     fun connect() {
         if (future != null) return
         val token = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
-        val f = MediaController.Builder(appContext, token).buildAsync()
+        val f = MediaController.Builder(appContext, token)
+            .setListener(sessionListener)
+            .buildAsync()
         future = f
         f.addListener({
             val c = try {
@@ -103,24 +138,32 @@ class PlayerConnection(context: Context) {
                 repeatMode.value = c.repeatMode
                 refreshQueue()
                 ready.value = true
+            } else {
+                // биндинг не удался — повторяем, биндинг сам стартует сервис
+                scheduleReconnect()
             }
         }, ContextCompat.getMainExecutor(appContext))
     }
 
     fun release() {
-        controller?.release()
+        reconnectJob?.cancel()
+        reconnectJob = null
+        try {
+            controller?.release()
+        } catch (_: Exception) {
+        }
         controller = null
         future = null
         ready.value = false
     }
 
-    fun position(): Long = controller?.currentPosition ?: 0L
+    fun position(): Long = ctrl()?.currentPosition ?: 0L
 
-    fun duration(): Long = controller?.duration?.takeIf { it > 0 } ?: 0L
+    fun duration(): Long = ctrl()?.duration?.takeIf { it > 0 } ?: 0L
 
     /** Очередь из треков; воспроизведение начинается с startIndex. */
     fun playQueue(tracks: List<Track>, startIndex: Int) {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         if (tracks.isEmpty()) return
         externalTrack.value = null
         val items = tracks.map { it.toMediaItem() }
@@ -131,7 +174,7 @@ class PlayerConnection(context: Context) {
 
     /** Открытие трека из MediaStore по id (например, из системного выбора). */
     fun playById(trackId: Long) {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         externalTrack.value = null
         val uri = android.content.ContentUris.withAppendedId(
             android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, trackId
@@ -153,7 +196,7 @@ class PlayerConnection(context: Context) {
         album: String,
         durationMs: Long,
     ) {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         externalTrack.value = Track(
             id = Long.MIN_VALUE,
             title = title,
@@ -189,14 +232,14 @@ class PlayerConnection(context: Context) {
     }
 
     fun togglePlay() {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         if (c.mediaItemCount == 0) return
         c.playWhenReady = !c.playWhenReady
     }
 
     /** Переключиться на позицию в очереди (индекс в порядке очереди). */
     fun playAt(queueIndex: Int) {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         if (queueIndex < 0 || queueIndex >= c.mediaItemCount) return
         c.seekTo(queueIndex, 0)
         c.play()
@@ -205,9 +248,14 @@ class PlayerConnection(context: Context) {
     /** Полная остановка (играющий трек сняли с выбора): стоп, очередь пустая,
      *  сохранённая позиция сброшена — плеер не должен помнить старую песню. */
     fun stopPlayback() {
-        val c = controller ?: return
+        val c = ctrl() ?: return
+        // Пауза ДО stop(): Media3 при stop() не доставляет onIsPlayingChanged(false)
+        // — без этого UI навсегда оставался в «играющем» состоянии (кнопка «Пауза»)
+        c.pause()
         c.stop()
         c.clearMediaItems()
+        // конечное состояние известно точно — синхронизируем независимо от событий
+        isPlaying.value = false
         val settings = (appContext.applicationContext as? FsApp)?.settings ?: return
         scope.launch { settings.savePlayback(-1L, 0L) }
     }
@@ -215,7 +263,7 @@ class PlayerConnection(context: Context) {
     /** Подготовить очередь, НЕ запуская воспроизведение:
      *  плеер покажет первый трек на паузе (после остановки играющего). */
     fun prepareQueue(tracks: List<Track>) {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         if (tracks.isEmpty()) {
             stopPlayback()
             return
@@ -228,7 +276,7 @@ class PlayerConnection(context: Context) {
 
     /** Следующий трек; на последнем — с начала очереди (как в макете). */
     fun next() {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         if (c.mediaItemCount == 0) return
         if (c.hasNextMediaItem()) {
             c.seekToNextMediaItem()
@@ -239,7 +287,7 @@ class PlayerConnection(context: Context) {
 
     /** Предыдущий: если прошло >3 с — в начало трека, иначе — назад. */
     fun previous() {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         if (c.mediaItemCount == 0) return
         if (position() > 3000 || !c.hasPreviousMediaItem()) {
             c.seekTo(0)
@@ -249,26 +297,26 @@ class PlayerConnection(context: Context) {
     }
 
     fun seekToFraction(fraction: Float) {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         val d = duration()
         if (d > 0) c.seekTo((fraction.coerceIn(0f, 1f) * d).toLong())
     }
 
     /** Относительная перемотка на deltaMs (может быть отрицательной). */
     fun seekBy(deltaMs: Long) {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         val d = duration()
         if (d <= 0) return
         c.seekTo((c.currentPosition + deltaMs).coerceIn(0L, d))
     }
 
     fun setShuffle(enabled: Boolean) {
-        controller?.shuffleModeEnabled = enabled
+        ctrl()?.shuffleModeEnabled = enabled
     }
 
     /** Цикл режимов повтора: выкл → все → один трек → выкл. */
     fun cycleRepeat() {
-        val c = controller ?: return
+        val c = ctrl() ?: return
         c.repeatMode = when (c.repeatMode) {
             Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
             Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE

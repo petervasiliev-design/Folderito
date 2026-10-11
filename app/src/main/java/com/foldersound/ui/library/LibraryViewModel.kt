@@ -98,12 +98,22 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         val prev = selected.value
         selected.value = next
         viewModelScope.launch { fsApp.settings.saveSelected(next) }
+        val tracksOf: (Set<Long>) -> List<Track> = { sel ->
+            _library.value?.allTracks?.filter { sel.contains(it.id) } ?: emptyList()
+        }
         // снятие галочки с играющего трека: показать первый трек оставшегося
         // выбора на паузе (при пустом выборе — полностью очистить плеер)
         val currentId = connection.currentMediaId.value?.toLongOrNull()
+        val queueEmpty = connection.queue.value.isEmpty()
         if (currentId != null && prev.contains(currentId) && !next.contains(currentId)) {
-            val nextTracks = _library.value?.allTracks?.filter { next.contains(it.id) } ?: emptyList()
-            connection.prepareQueue(nextTracks)
+            connection.prepareQueue(tracksOf(next))
+        } else if (next.isNotEmpty() &&
+            connection.currentMediaId.value == null && queueEmpty
+        ) {
+            // плеер пуст (после «Очистить всё» или без сохранённого трека), а выбор
+            // появился: наполнить плеер первым треком на паузе — иначе экран плеера
+            // открыт, но все кнопки при пустой очереди молча игнорируют тапы
+            connection.prepareQueue(tracksOf(next))
         }
     }
 
