@@ -16,6 +16,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
@@ -32,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.foldersound.ui.common.FsSwitch
 import com.foldersound.ui.common.HSlider
 import com.foldersound.ui.common.IconBtn
 import com.foldersound.ui.common.SectionLabel
@@ -49,14 +52,18 @@ private fun speedLabel(v: Float): String =
     String.format(Locale.US, "%.2f", v).trimEnd('0').trimEnd('.') + "x"
 
 /**
- * Экран «Настройки воспроизведения»: скорость воспроизведения (0.5x–2x)
- * для музыки и аудиокниг. Значение применяется сразу и сохраняется между сессиями.
+ * Экран «Настройки аудиокниг»: скорость воспроизведения (0.5x–2x),
+ * вырезание пауз и четкость речи. Всё применяется сразу и хранится между сессиями.
  */
 @Composable
 fun PlaybackSettingsScreen(
     onBack: () -> Unit,
     speed: Float,
     onSetSpeed: (Float) -> Unit,
+    clarity: Boolean,
+    onSetClarity: (Boolean) -> Unit,
+    skipSilence: Boolean,
+    onSetSkipSilence: (Boolean) -> Unit,
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
@@ -179,6 +186,74 @@ fun PlaybackSettingsScreen(
                         fontWeight = FontWeight.W700,
                     )
                 }
+            }
+
+            // вырезание пауз (Media3 skip silence)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(fs.surf)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Filled.FastForward,
+                    contentDescription = null,
+                    tint = fs.on3,
+                    modifier = Modifier.size(22.dp),
+                )
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(
+                        s.skipSilenceTitle,
+                        color = fs.on,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.W700,
+                    )
+                    Text(
+                        s.skipSilenceHint,
+                        Modifier.padding(top = 2.dp),
+                        color = fs.on2,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W600,
+                    )
+                }
+                FsSwitch(checked = skipSilence, onChange = onSetSkipSilence)
+            }
+
+            // четкость речи (голосовой пресет, перекрывает эквалайзер)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(fs.surf)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Filled.RecordVoiceOver,
+                    contentDescription = null,
+                    tint = fs.on3,
+                    modifier = Modifier.size(22.dp),
+                )
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(
+                        s.clarityTitle,
+                        color = fs.on,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.W700,
+                    )
+                    Text(
+                        s.clarityHint,
+                        Modifier.padding(top = 2.dp),
+                        color = fs.on2,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W600,
+                    )
+                }
+                FsSwitch(checked = clarity, onChange = onSetClarity)
             }
         }
     }

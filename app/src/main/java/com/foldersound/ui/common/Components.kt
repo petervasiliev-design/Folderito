@@ -261,6 +261,9 @@ fun FsSwitch(
     modifier: Modifier = Modifier,
 ) {
     val fs = Fs.c
+    // checked через rememberUpdatedState: pointerInput(Unit) держит лямбду
+    // из первой композиции, и без этого тапы после первого игнорируются
+    val currentChecked by rememberUpdatedState(checked)
     val knobSize by animateDpAsState(if (checked) 19.dp else 15.dp, label = "knobSize")
     val knobX by animateDpAsState(if (checked) 25.dp else 5.dp, label = "knobX")
     Box(
@@ -269,7 +272,7 @@ fun FsSwitch(
             .clip(RoundedCornerShape(16.dp))
             .background(if (checked) fs.primary else fs.surf3)
             .border(2.dp, if (checked) fs.primary else fs.on3, RoundedCornerShape(16.dp))
-            .pointerInput(Unit) { detectTapGestures { onChange(!checked) } },
+            .pointerInput(Unit) { detectTapGestures { onChange(!currentChecked) } },
     ) {
         Box(
             Modifier

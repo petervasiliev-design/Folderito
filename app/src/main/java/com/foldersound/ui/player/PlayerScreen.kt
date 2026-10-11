@@ -30,10 +30,10 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -88,6 +89,7 @@ fun PlayerScreen(
     onBack: () -> Unit,
     onOpenEq: () -> Unit,
     onOpenPlaybackSettings: () -> Unit,
+    onOpenSeekSettings: () -> Unit,
     onOpenSongs: () -> Unit,
     seekButtonsShown: Boolean = true,
     seekStepSec: Int = 10,
@@ -172,7 +174,7 @@ fun PlayerScreen(
                 modifier = Modifier.eqDot(eqState.enabled, fs.accent),
             )
             IconBtn(
-                Icons.Filled.Speed,
+                Icons.Filled.Settings,
                 s.playbackSettingsTitle,
                 onOpenPlaybackSettings,
             )
@@ -275,10 +277,12 @@ fun PlayerScreen(
                     SeekPill(
                         label = "−$seekStepSec ${s.secShort}",
                         onClick = { connection.seekBy(-seekStepSec * 1000L) },
+                        onHold = onOpenSeekSettings,
                     )
                     SeekPill(
                         label = "+$seekStepSec ${s.secShort}",
                         onClick = { connection.seekBy(seekStepSec * 1000L) },
+                        onHold = onOpenSeekSettings,
                         modifier = Modifier.padding(start = 14.dp),
                     )
                 }
@@ -449,17 +453,27 @@ private fun Chip(
 
 /* ==================== кнопки управления ==================== */
 
-/** Таблетка перемотки «−10 с» / «+10 с». */
+/** Таблетка перемотки «−10 с» / «+10 с»: тап — перемотка (вибро), удержание 2 с — настройки (вибро). */
 @Composable
 private fun SeekPill(
     label: String,
     onClick: () -> Unit,
+    onHold: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val fs = Fs.c
+    val view = LocalView.current
     Box(
         modifier
-            .noRippleClickable(onClick)
+            // удержание 2 с открывает настройки (шаг перемотки), тап — перематывает
+            .holdToggle(timeoutMs = 2_000) {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                onHold()
+            }
+            .noRippleClickable {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                onClick()
+            }
             .clip(RoundedCornerShape(18.dp))
             .background(fs.surf2)
             .border(1.dp, fs.outline, RoundedCornerShape(18.dp))

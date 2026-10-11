@@ -117,6 +117,11 @@ data class FsStrings(
     val batteryHint: String,
     val playbackSettingsTitle: String,
     val speedTitle: String,
+    val skipSilenceTitle: String,
+    val skipSilenceHint: String,
+    val clarityTitle: String,
+    val clarityHint: String,
+    val seekHoldHint: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -238,8 +243,13 @@ private val RuStrings = FsStrings(
     unavailable = "недоступен",
     batteryTitle = "Батарея",
     batteryHint = "Разрешить работу в фоне, чтобы музыка не прерывалась",
-    playbackSettingsTitle = "Настройки воспроизведения",
+    playbackSettingsTitle = "Настройки аудиокниг",
     speedTitle = "Скорость воспроизведения",
+    skipSilenceTitle = "Вырезание пауз",
+    skipSilenceHint = "Тихие фрагменты пропускаются автоматически",
+    clarityTitle = "Четкость речи",
+    clarityHint = "Голосовой пресет — выключает эквалайзер",
+    seekHoldHint = "Удержание кнопок перемотки в плеере 2 с открывает эту настройку",
 )
 
 private val EnStrings = FsStrings(
@@ -336,8 +346,13 @@ private val EnStrings = FsStrings(
     unavailable = "unavailable",
     batteryTitle = "Battery",
     batteryHint = "Allow background operation so music keeps playing",
-    playbackSettingsTitle = "Playback settings",
+    playbackSettingsTitle = "Audiobook settings",
     speedTitle = "Playback speed",
+    skipSilenceTitle = "Skip silence",
+    skipSilenceHint = "Silent parts are skipped automatically",
+    clarityTitle = "Speech clarity",
+    clarityHint = "Voice preset — turns the equalizer off",
+    seekHoldHint = "Hold the seek buttons in the player for 2 s to open this setting",
 )
 
 fun stringsFor(langCode: String): FsStrings = if (langCode == "en") EnStrings else RuStrings

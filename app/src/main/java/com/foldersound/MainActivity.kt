@@ -55,6 +55,7 @@ import com.foldersound.ui.theme.Fs
 import com.foldersound.ui.theme.FsTheme
 import com.foldersound.ui.theme.Skins
 import com.foldersound.ui.theme.ThemeMode
+import com.foldersound.playback.AudioEffects
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -82,6 +83,10 @@ class MainActivity : ComponentActivity() {
                 .collectAsStateWithLifecycle(10)
             val playbackSpeed by fsApp.settings.playbackSpeed
                 .collectAsStateWithLifecycle(1f)
+            val eqState by AudioEffects.state
+                .collectAsStateWithLifecycle(AudioEffects.Settings())
+            val skipSilence by fsApp.settings.skipSilence
+                .collectAsStateWithLifecycle(false)
             CompositionLocalProvider(LocalStrings provides stringsFor(langCode)) {
                 FsTheme(themeMode, skinId) {
                     AppRoot(
@@ -110,6 +115,13 @@ class MainActivity : ComponentActivity() {
                         onSetPlaybackSpeed = { speed ->
                             fsApp.playerConnection.setPlaybackSpeed(speed)
                             lifecycleScope.launch { fsApp.settings.savePlaybackSpeed(speed) }
+                        },
+                        clarity = eqState.clarity,
+                        onSetClarity = { on -> AudioEffects.setClarity(on) },
+                        skipSilence = skipSilence,
+                        onSetSkipSilence = { on ->
+                            fsApp.playerConnection.setSkipSilence(on)
+                            lifecycleScope.launch { fsApp.settings.saveSkipSilence(on) }
                         },
                         onPermissionGranted = { vm.load() },
                     )
@@ -182,6 +194,10 @@ private fun AppRoot(
     onSetSeekStep: (Int) -> Unit,
     playbackSpeed: Float,
     onSetPlaybackSpeed: (Float) -> Unit,
+    clarity: Boolean,
+    onSetClarity: (Boolean) -> Unit,
+    skipSilence: Boolean,
+    onSetSkipSilence: (Boolean) -> Unit,
     onPermissionGranted: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -220,6 +236,10 @@ private fun AppRoot(
             onSetSeekStep = onSetSeekStep,
             playbackSpeed = playbackSpeed,
             onSetPlaybackSpeed = onSetPlaybackSpeed,
+            clarity = clarity,
+            onSetClarity = onSetClarity,
+            skipSilence = skipSilence,
+            onSetSkipSilence = onSetSkipSilence,
         )
     } else {
         PermissionScreen(

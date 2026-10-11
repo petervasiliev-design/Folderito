@@ -29,6 +29,8 @@ class SettingsStore(private val context: Context) {
         val EQ_BANDS = stringPreferencesKey("eq_bands")
         val EQ_BASS = intPreferencesKey("eq_bass")
         val EQ_SURROUND = intPreferencesKey("eq_surround")
+        val EQ_CLARITY = booleanPreferencesKey("eq_clarity")
+        val SKIP_SILENCE = booleanPreferencesKey("skip_silence")
         val EXPANDED = stringSetPreferencesKey("expanded_folders")
         val SELECTED = stringSetPreferencesKey("selected_tracks")
         val PB_TRACK = longPreferencesKey("pb_track_id")
@@ -208,6 +210,7 @@ class SettingsStore(private val context: Context) {
             bands = bands,
             bass = p[Keys.EQ_BASS] ?: defaults.bass,
             surround = p[Keys.EQ_SURROUND] ?: defaults.surround,
+            clarity = p[Keys.EQ_CLARITY] ?: defaults.clarity,
         )
     }
 
@@ -218,6 +221,17 @@ class SettingsStore(private val context: Context) {
             it[Keys.EQ_BANDS] = s.bands.joinToString(",")
             it[Keys.EQ_BASS] = s.bass
             it[Keys.EQ_SURROUND] = s.surround
+            it[Keys.EQ_CLARITY] = s.clarity
         }
+    }
+
+    /** Пропуск пауз/тишины во время воспроизведения (аудиокниги, подкасты). */
+    val skipSilence: Flow<Boolean> = context.dataStore.data.map { it[Keys.SKIP_SILENCE] ?: false }
+
+    suspend fun loadSkipSilence(): Boolean =
+        context.dataStore.data.first()[Keys.SKIP_SILENCE] ?: false
+
+    suspend fun saveSkipSilence(on: Boolean) {
+        context.dataStore.edit { it[Keys.SKIP_SILENCE] = on }
     }
 }

@@ -23,7 +23,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+
+/**
+ * Мост UI → сервис для пропуска пауз: у MediaController в media3 1.5 нет
+ * setSkipSilenceEnabled, поэтому тумблер пишет сюда, а сервис применяет к плееру.
+ */
+object SkipSilenceState {
+    val enabled = MutableStateFlow(false)
+}
 
 /**
  * Фоновый сервис воспроизведения: ExoPlayer + MediaSession (уведомление,
@@ -158,8 +167,13 @@ class PlaybackService : MediaSessionService() {
         scope.launch {
             val settings = (application as FsApp).settings
             val (trackId, positionMs) = settings.loadPlayback()
-            // скорость из прошлой сессии применяется к плееру сразу
+            // скорость и пропуск пауз из прошлой сессии применяются к плееру сразу
             player.setPlaybackSpeed(settings.loadPlaybackSpeed())
+            player.skipSilenceEnabled = settings.loadSkipSilence()
+            SkipSilenceState.enabled.value = player.skipSilenceEnabled
+            scope.launch {
+                SkipSilenceState.enabled.collect { player.skipSilenceEnabled = it }
+            }
             val saved = if (trackId >= 0) settings.loadQueue() else null
             val restored = saved?.let { (order, _) ->
                 if (!order.contains(trackId)) return@let false

@@ -51,6 +51,10 @@ fun AppNav(
     onSetSeekStep: (Int) -> Unit,
     playbackSpeed: Float,
     onSetPlaybackSpeed: (Float) -> Unit,
+    clarity: Boolean,
+    onSetClarity: (Boolean) -> Unit,
+    skipSilence: Boolean,
+    onSetSkipSilence: (Boolean) -> Unit,
 ) {
     val stack = remember { mutableStateListOf<Screen>(Screen.Library) }
     val current = stack.last()
@@ -127,6 +131,7 @@ fun AppNav(
                 onBack = { pop() },
                 onOpenEq = { push(Screen.Eq) },
                 onOpenPlaybackSettings = { push(Screen.PlaybackSettings) },
+                onOpenSeekSettings = { push(Screen.Settings) },
                 onOpenSongs = { push(Screen.Songs) },
                 seekButtonsShown = seekButtonsShown,
                 seekStepSec = seekStepSec,
@@ -135,6 +140,10 @@ fun AppNav(
                 onBack = { pop() },
                 speed = playbackSpeed,
                 onSetSpeed = onSetPlaybackSpeed,
+                clarity = clarity,
+                onSetClarity = onSetClarity,
+                skipSilence = skipSilence,
+                onSetSkipSilence = onSetSkipSilence,
             )
             Screen.Eq -> EqualizerScreen(
                 onBack = { pop() },

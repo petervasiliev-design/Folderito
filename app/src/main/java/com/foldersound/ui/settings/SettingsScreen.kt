@@ -220,6 +220,13 @@ fun SettingsScreen(
                     },
                     onDragEnd = { dragging = false },
                 )
+                Text(
+                    s.seekHoldHint,
+                    Modifier.padding(top = 6.dp),
+                    color = fs.on3,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.W600,
+                )
             }
 
             // защита от энергосберегающих оптимизаций (критично для Xiaomi/Huawei)

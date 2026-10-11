@@ -419,6 +419,11 @@ class PlayerConnection(context: Context) {
         ctrl()?.setPlaybackSpeed(speed.coerceIn(0.5f, 2f))
     }
 
+    /** Пропуск пауз/тишины во время воспроизведения. */
+    fun setSkipSilence(enabled: Boolean) {
+        SkipSilenceState.enabled.value = enabled
+    }
+
     /** Цикл режимов повтора: выкл → все → один трек → выкл. */
     fun cycleRepeat() {
         val c = ctrl() ?: return

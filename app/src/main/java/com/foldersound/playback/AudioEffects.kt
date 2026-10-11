@@ -20,6 +20,8 @@ object AudioEffects {
         val bands: List<Int> = listOf(5, 1, -2, 1, 5),
         val bass: Int = 35,
         val surround: Int = 20,
+        /** «Четкость речи»: голосовой пресет, перекрывает эквалайзер. */
+        val clarity: Boolean = false,
     )
 
     data class BandInfo(
@@ -50,6 +52,9 @@ object AudioEffects {
 
     const val CUSTOM = "custom"
 
+    /** Голосовой пресет «Четкость речи»: срез басов + подъем частот разборчивости (дБ). */
+    val VOICE_BANDS = listOf(-6, -3, 4, 6, 2)
+
     private val LOGICAL_FREQS = listOf(60f, 230f, 910f, 3600f, 14000f)
 
     val state = MutableStateFlow(Settings())
@@ -78,6 +83,14 @@ object AudioEffects {
 
     fun setSurround(percent: Int) {
         state.value = state.value.copy(surround = percent.coerceIn(0, 100))
+    }
+
+    /** «Четкость речи»: при включении перекрывает и выключает эквалайзер. */
+    fun setClarity(on: Boolean) {
+        state.value = state.value.copy(
+            clarity = on,
+            enabled = if (on) false else state.value.enabled,
+        )
     }
 
     fun reset() {
@@ -180,15 +193,29 @@ class EqualizerManager(sessionId: Int) {
     fun apply(s: AudioEffects.Settings) {
         eq?.let { e ->
             try {
-                e.enabled = s.enabled
-                if (s.enabled) {
+                if (s.clarity) {
+                    // «Четкость речи»: голосовой пресет перекрывает настройки эквалайзера
+                    e.enabled = true
+                    val bands = AudioEffects.mapToBands(AudioEffects.VOICE_BANDS)
                     val range = e.bandLevelRange
-                    val min = range[0].toInt()
-                    val max = range[1].toInt()
                     for (b in 0 until e.numberOfBands) {
-                        val db = s.bands.getOrNull(b.toInt()) ?: 0
-                        val centiDb = (db * 100).coerceIn(min, max)
-                        e.setBandLevel(b.toShort(), centiDb.toShort())
+                        val db = bands.getOrNull(b) ?: 0
+                        e.setBandLevel(
+                            b.toShort(),
+                            (db * 100).coerceIn(range[0].toInt(), range[1].toInt()).toShort(),
+                        )
+                    }
+                } else {
+                    e.enabled = s.enabled
+                    if (s.enabled) {
+                        val range = e.bandLevelRange
+                        val min = range[0].toInt()
+                        val max = range[1].toInt()
+                        for (b in 0 until e.numberOfBands) {
+                            val db = s.bands.getOrNull(b.toInt()) ?: 0
+                            val centiDb = (db * 100).coerceIn(min, max)
+                            e.setBandLevel(b.toShort(), centiDb.toShort())
+                        }
                     }
                 }
             } catch (ex: Exception) {
@@ -196,14 +223,14 @@ class EqualizerManager(sessionId: Int) {
         }
         bass?.let { b ->
             try {
-                b.enabled = s.enabled
+                b.enabled = s.enabled && !s.clarity
                 b.setStrength((s.bass * 10).toShort())
             } catch (ex: Exception) {
             }
         }
         virt?.let { v ->
             try {
-                v.enabled = s.enabled
+                v.enabled = s.enabled && !s.clarity
                 v.setStrength((s.surround * 10).toShort())
             } catch (ex: Exception) {
             }
