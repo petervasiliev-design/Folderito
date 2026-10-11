@@ -55,5 +55,16 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </service>
+
+        <!-- ACTION_MEDIA_BUTTON рассылается как broadcast, когда процесс убит:
+             его ловит receiver и пересылает в PlaybackService (Tasker/MacroDroid,
+             магнитола, гарнитура) -->
+        <receiver
+            android:name="androidx.media3.session.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
