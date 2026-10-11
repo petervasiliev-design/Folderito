@@ -41,6 +41,8 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
+        // резолвер для умного перемешивания (id → Track из библиотеки)
+        connection.setTrackResolver { id -> _library.value?.trackById[id] }
         viewModelScope.launch {
             // восстановление состояния прошлой сессии
             expanded.value = fsApp.settings.loadExpanded()

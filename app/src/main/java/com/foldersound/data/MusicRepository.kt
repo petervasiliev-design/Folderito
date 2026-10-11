@@ -5,6 +5,7 @@ import android.os.Build
 import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.Collator
 import java.util.Locale
 
@@ -65,6 +66,9 @@ class MusicRepository(private val context: Context) {
                 val album = c.getString(iAlbum)
                     ?.takeIf { it.isNotBlank() && it != "<unknown>" }
                     ?: ""
+                // MediaStore бывает не в курсе удалённых файлов: помечаем «битые»,
+                // они остаются видны в библиотеке, но не играются (PlayerConnection)
+                val missing = !File(path).exists()
                 tracks += Track(
                     id = c.getLong(iId),
                     title = title,
@@ -74,6 +78,7 @@ class MusicRepository(private val context: Context) {
                     path = path,
                     folderPath = path.substringBeforeLast('/'),
                     albumId = c.getLong(iAlbumId),
+                    missing = missing,
                 )
             }
         }

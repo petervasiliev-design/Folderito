@@ -32,6 +32,8 @@ class SettingsStore(private val context: Context) {
         val SELECTED = stringSetPreferencesKey("selected_tracks")
         val PB_TRACK = longPreferencesKey("pb_track_id")
         val PB_POS = longPreferencesKey("pb_position_ms")
+        val PB_QUEUE = stringPreferencesKey("pb_queue")
+        val PB_QUEUE_BASE = stringPreferencesKey("pb_queue_base")
         val SHUFFLE = booleanPreferencesKey("shuffle")
         val REPEAT = intPreferencesKey("repeat_mode")
         val SEEK_BUTTONS = booleanPreferencesKey("seek_buttons")
@@ -133,6 +135,34 @@ class SettingsStore(private val context: Context) {
         val id = p[Keys.PB_TRACK] ?: -1L
         val pos = p[Keys.PB_POS] ?: 0L
         return id to pos
+    }
+
+    /**
+     * Очередь воспроизведения: физический порядок (при перемешивании — перемешанный)
+     * и линейный порядок до перемешивания. Восстанавливается при старте сервиса,
+     * чтобы рандом продолжал цепочку после перезапуска приложения.
+     */
+    suspend fun saveQueue(order: List<Long>, base: List<Long>) {
+        context.dataStore.edit {
+            it[Keys.PB_QUEUE] = order.joinToString(",")
+            it[Keys.PB_QUEUE_BASE] = base.joinToString(",")
+        }
+    }
+
+    /** null — сохранённой очереди нет. */
+    suspend fun loadQueue(): Pair<List<Long>, List<Long>>? {
+        val p = context.dataStore.data.first()
+        val order = p[Keys.PB_QUEUE]?.split(',')?.mapNotNull { it.toLongOrNull() }.orEmpty()
+        if (order.isEmpty()) return null
+        val base = p[Keys.PB_QUEUE_BASE]?.split(',')?.mapNotNull { it.toLongOrNull() }.orEmpty()
+        return order to base
+    }
+
+    suspend fun clearQueue() {
+        context.dataStore.edit {
+            it.remove(Keys.PB_QUEUE)
+            it.remove(Keys.PB_QUEUE_BASE)
+        }
     }
 
     /** Флаги перемешивания и повтора. */

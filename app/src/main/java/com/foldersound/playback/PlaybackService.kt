@@ -56,15 +56,44 @@ class PlaybackService : MediaSessionService() {
 
         mediaSession = MediaSession.Builder(this, player).build()
 
+        // битый/недоступный файл посреди сессии: плавно переходим к следующему треку
+        player.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                // коды 2000-2999 — ошибки ввода-вывода (файл не найден, недоступен…)
+                if (error.errorCode !in 2000..2999) return
+                if (player.hasNextMediaItem()) {
+                    player.seekToNextMediaItem()
+                    player.prepare()
+                }
+            }
+        })
+
         scope.launch {
             AudioEffects.state.collect { eqManager?.apply(it) }
         }
 
-        // восстановление состояния прошлой сессии: трек, позиция, флаги
+        // восстановление состояния прошлой сессии: очередь (если сохранена), трек, позиция
         scope.launch {
             val settings = (application as FsApp).settings
             val (trackId, positionMs) = settings.loadPlayback()
-            if (trackId >= 0) {
+            val saved = if (trackId >= 0) settings.loadQueue() else null
+            val restored = saved?.let { (order, _) ->
+                if (!order.contains(trackId)) return@let false
+                val items = order.map { id ->
+                    MediaItem.Builder()
+                        .setMediaId(id.toString())
+                        .setUri(
+                            ContentUris.withAppendedId(
+                                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id
+                            )
+                        )
+                        .build()
+                }
+                player.setMediaItems(items, order.indexOf(trackId).coerceAtLeast(0), positionMs)
+                player.prepare()
+                true
+            } ?: false
+            if (!restored && trackId >= 0) {
                 try {
                     val uri = ContentUris.withAppendedId(
                         MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, trackId
@@ -79,8 +108,9 @@ class PlaybackService : MediaSessionService() {
                     // трек мог исчезнуть с устройства — просто начинаем с чистого листа
                 }
             }
-            val (shuffle, repeatMode) = settings.loadPlaybackFlags()
-            player.shuffleModeEnabled = shuffle
+            val (_, repeatMode) = settings.loadPlaybackFlags()
+            // порядок очереди управляется приложением (физическое перемешивание)
+            player.shuffleModeEnabled = false
             player.repeatMode = repeatMode
         }
 

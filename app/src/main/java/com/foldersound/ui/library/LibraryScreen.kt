@@ -63,6 +63,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
@@ -752,11 +753,14 @@ fun TrackRowView(
     onPlay: (() -> Unit)? = null,
 ) {
     val fs = Fs.c
+    val s = LocalStrings.current
     val nest = rememberNestMetrics(tag)
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val haptic = LocalHapticFeedback.current
     val view = LocalView.current
+    // трек с отсутствующим файлом: приглушаем и помечаем, при запуске он пропускается
+    val missing = track.missing
     // zIndex: плашка подписи этой строки рисуется поверх черт нижних строк
     Box(Modifier.zIndex(if (nest != null) 1f else 0f).nestLine(depth, fs)) {
         if (nest != null) {
@@ -818,6 +822,7 @@ fun TrackRowView(
                 artUri = track.albumArtUri,
                 modifier = Modifier
                     .size(46.dp)
+                    .alpha(if (missing) 0.35f else 1f)
                     .let { m ->
                         if (isCurrent) m.border(2.dp, fs.accent, RoundedCornerShape(13.dp)) else m
                     },
@@ -833,14 +838,21 @@ fun TrackRowView(
                 highlight(
                     text = track.title,
                     query = query,
-                    baseColor = if (isCurrent) fs.accent else fs.on,
+                    baseColor = when {
+                        isCurrent -> fs.accent
+                        missing -> fs.on3
+                        else -> fs.on
+                    },
                     highlightColor = fs.accent,
                 ),
                 fontSize = 14.5.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            MetaText(subText, Modifier.padding(top = 1.dp))
+            MetaText(
+                if (missing) "$subText · ${s.unavailable}" else subText,
+                Modifier.padding(top = 1.dp),
+            )
         }
             Row(
                 verticalAlignment = Alignment.CenterVertically,

@@ -13,6 +13,8 @@ data class Track(
     val path: String,
     val folderPath: String,
     val albumId: Long,
+    /** Файл не найден на диске при сканировании: трек виден в библиотеке, но не играется. */
+    val missing: Boolean = false,
 ) {
     val uri: Uri
         get() = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)

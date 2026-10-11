@@ -9,6 +9,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.foldersound.FsApp
+import com.foldersound.data.Shuffle
 import com.foldersound.data.Track
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
@@ -53,8 +54,18 @@ class PlayerConnection(context: Context) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    /** Резолвер id → Track из библиотеки (для умного перемешивания); ставится ViewModel. */
+    private var trackResolver: ((Long) -> Track?)? = null
+
+    /** Линейный порядок очереди до перемешивания (для выключения shuffle). */
+    private var baseQueue: List<Long> = emptyList()
+
     /** Контроллер, только пока подключение живо; иначе null (команды не идут). */
     private fun ctrl(): MediaController? = controller?.takeIf { it.isConnected }
+
+    fun setTrackResolver(resolver: (Long) -> Track?) {
+        trackResolver = resolver
+    }
 
     /** Слушатель жизненного цикла контроллера: разрыв → пересборка. */
     private val sessionListener = object : MediaController.Listener {
@@ -138,6 +149,14 @@ class PlayerConnection(context: Context) {
                 repeatMode.value = c.repeatMode
                 refreshQueue()
                 ready.value = true
+                // флаг shuffle берём из настроек: физический порядок восстанавливает сервис
+                scope.launch {
+                    val (savedShuffle, savedRepeat) =
+                        (appContext.applicationContext as? FsApp)?.settings?.loadPlaybackFlags()
+                            ?: return@launch
+                    shuffle.value = savedShuffle
+                    repeatMode.value = savedRepeat
+                }
             } else {
                 // биндинг не удался — повторяем, биндинг сам стартует сервис
                 scheduleReconnect()
@@ -161,15 +180,38 @@ class PlayerConnection(context: Context) {
 
     fun duration(): Long = ctrl()?.duration?.takeIf { it > 0 } ?: 0L
 
-    /** Очередь из треков; воспроизведение начинается с startIndex. */
+    /** Отбрасывает треки с отсутствующим файлом, пересчитывая стартовый индекс.
+     *  null — играть нечего (все выбранные треки «битые»). */
+    private fun playable(tracks: List<Track>, startIndex: Int): Pair<List<Track>, Int>? {
+        val kept = tracks.filterNot { it.missing }
+        if (kept.isEmpty()) return null
+        if (kept.size == tracks.size) return tracks to startIndex
+        val want = tracks.getOrNull(startIndex)?.takeIf { !it.missing }
+        val newStart = want?.let { w -> kept.indexOfFirst { it.id == w.id } }?.takeIf { it >= 0 } ?: 0
+        return kept to newStart
+    }
+
+    /** Очередь из треков; воспроизведение начинается с startIndex.
+     *  При включённом shuffle сразу играет перемешанный список с выбранного трека. */
     fun playQueue(tracks: List<Track>, startIndex: Int) {
         val c = ctrl() ?: return
-        if (tracks.isEmpty()) return
+        val (kept, startIdx) = playable(tracks, startIndex) ?: return
         externalTrack.value = null
-        val items = tracks.map { it.toMediaItem() }
-        c.setMediaItems(items, startIndex.coerceIn(0, items.size - 1), 0)
+        val ordered: List<Track>
+        val finalStart: Int
+        if (shuffle.value) {
+            ordered = Shuffle.shuffleQueue(kept, kept.getOrNull(startIdx)?.id)
+            finalStart = 0
+        } else {
+            ordered = kept
+            finalStart = startIdx
+        }
+        val items = ordered.map { it.toMediaItem() }
+        c.setMediaItems(items, finalStart.coerceIn(0, items.size - 1), 0)
         c.prepare()
         c.play()
+        baseQueue = kept.map { it.id }
+        saveQueueState(items.map { it.mediaId.toLong() }, baseQueue)
     }
 
     /** Открытие трека из MediaStore по id (например, из системного выбора). */
@@ -256,8 +298,12 @@ class PlayerConnection(context: Context) {
         c.clearMediaItems()
         // конечное состояние известно точно — синхронизируем независимо от событий
         isPlaying.value = false
+        baseQueue = emptyList()
         val settings = (appContext.applicationContext as? FsApp)?.settings ?: return
-        scope.launch { settings.savePlayback(-1L, 0L) }
+        scope.launch {
+            settings.savePlayback(-1L, 0L)
+            settings.clearQueue()
+        }
     }
 
     /** Подготовить очередь, НЕ запуская воспроизведение:
@@ -268,10 +314,17 @@ class PlayerConnection(context: Context) {
             stopPlayback()
             return
         }
-        val items = tracks.map { it.toMediaItem() }
+        val (kept, _) = playable(tracks, 0) ?: run {
+            stopPlayback()
+            return
+        }
+        val ordered = if (shuffle.value) Shuffle.shuffleQueue(kept, kept.firstOrNull()?.id) else kept
+        val items = ordered.map { it.toMediaItem() }
         c.setMediaItems(items, 0, 0)
         c.playWhenReady = false
         c.prepare()
+        baseQueue = kept.map { it.id }
+        saveQueueState(items.map { it.mediaId.toLong() }, baseQueue)
     }
 
     /** Следующий трек; на последнем — с начала очереди (как в макете). */
@@ -310,8 +363,55 @@ class PlayerConnection(context: Context) {
         c.seekTo((c.currentPosition + deltaMs).coerceIn(0L, d))
     }
 
+    /** Переставляет очередь в новый порядок, сохраняя играющий трек и позицию. */
+    private suspend fun reorderQueue(enabled: Boolean) {
+        val c = ctrl() ?: return
+        val resolver = trackResolver ?: return
+        if (c.mediaItemCount < 2) return
+        val ids = ArrayList<Long>(c.mediaItemCount)
+        for (i in 0 until c.mediaItemCount) {
+            c.getMediaItemAt(i).mediaId.toLongOrNull()?.let(ids::add)
+        }
+        val tracks = ids.mapNotNull(resolver)
+        if (tracks.size < 2) return
+
+        // линейный порядок: из памяти, иначе из сохранённого, иначе как есть
+        val base = baseQueue.ifEmpty {
+            (appContext.applicationContext as? FsApp)?.settings?.loadQueue()?.second.orEmpty()
+        }.filter { it in ids.toSet() }
+
+        val currentId = c.currentMediaItem?.mediaId?.toLongOrNull()
+        val positionMs = c.currentPosition
+        val (newOrder, startId) = if (enabled) {
+            val shuffled = Shuffle.shuffleQueue(tracks, currentId)
+            shuffled to shuffled.firstOrNull()?.id
+        } else {
+            val linear = base.mapNotNull { id -> tracks.firstOrNull { it.id == id } }
+                .let { if (it.isEmpty()) tracks else it }
+            linear to currentId
+        }
+
+        val items = newOrder.map { it.toMediaItem() }
+        val startIdx = startId
+            ?.let { id -> items.indexOfFirst { it.mediaId == id.toString() } }
+            ?.takeIf { it >= 0 } ?: 0
+        c.setMediaItems(items, startIdx, positionMs)
+        c.prepare()
+        baseQueue = base
+        saveQueueState(items.map { it.mediaId.toLong() }, base)
+    }
+
+    private fun saveQueueState(order: List<Long>, base: List<Long>) {
+        scope.launch {
+            (appContext.applicationContext as? FsApp)?.settings?.saveQueue(order, base)
+        }
+    }
+
     fun setShuffle(enabled: Boolean) {
-        ctrl()?.shuffleModeEnabled = enabled
+        if (shuffle.value == enabled) return
+        shuffle.value = enabled
+        persistFlags(enabled, repeatMode.value)
+        scope.launch { reorderQueue(enabled) }
     }
 
     /** Цикл режимов повтора: выкл → все → один трек → выкл. */
