@@ -110,6 +110,8 @@ data class FsStrings(
     val sleepRemaining: String,
     val sleepCancel: String,
     val sleepStart: String,
+    val clearAllConfirm: String,
+    val cancel: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -226,6 +228,8 @@ private val RuStrings = FsStrings(
     sleepRemaining = "Осталось",
     sleepCancel = "Закрыть таймер (удержание 1 с)",
     sleepStart = "Запустить",
+    clearAllConfirm = "Убрать выделение со всех папок и треков?",
+    cancel = "Отмена",
 )
 
 private val EnStrings = FsStrings(
@@ -317,6 +321,8 @@ private val EnStrings = FsStrings(
     sleepRemaining = "Time left",
     sleepCancel = "Cancel timer (hold 1 s)",
     sleepStart = "Start",
+    clearAllConfirm = "Remove selection from all folders and tracks?",
+    cancel = "Cancel",
 )
 
 fun stringsFor(langCode: String): FsStrings = if (langCode == "en") EnStrings else RuStrings

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.foldersound.data.Track
+import com.foldersound.ui.common.ConfirmDialog
 import com.foldersound.ui.common.horizontalSwipes
 import com.foldersound.ui.i18n.LocalStrings
 import com.foldersound.ui.library.LibraryViewModel
@@ -82,6 +83,8 @@ fun SongsScreen(
         lib?.allTracks?.filter { selected.contains(it.id) } ?: emptyList()
     }
 
+    var confirmClear by remember { mutableStateOf(false) }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -113,7 +116,7 @@ fun SongsScreen(
             com.foldersound.ui.common.IconBtn(
                 Icons.Filled.ClearAll,
                 s.clearAll,
-                vm::clearSelection,
+                onClick = { confirmClear = true },
             )
         }
 
@@ -170,6 +173,20 @@ fun SongsScreen(
                         .fillMaxWidth(),
                 )
             }
+        }
+
+        if (confirmClear) {
+            ConfirmDialog(
+                title = s.clearAll,
+                text = s.clearAllConfirm,
+                confirmLabel = s.clear,
+                cancelLabel = s.cancel,
+                onConfirm = {
+                    confirmClear = false
+                    vm.clearSelection()
+                },
+                onDismiss = { confirmClear = false },
+            )
         }
     }
 }

@@ -74,6 +74,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -87,6 +88,7 @@ import com.foldersound.data.Library
 import com.foldersound.data.StandardFolders
 import com.foldersound.data.Track
 import com.foldersound.ui.common.CheckState
+import com.foldersound.ui.common.ConfirmDialog
 import com.foldersound.ui.common.HSlider
 import com.foldersound.ui.common.IconBtn
 import com.foldersound.ui.common.MetaText
@@ -327,6 +329,7 @@ private fun Header(
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
+    var confirmClear by remember { mutableStateOf(false) }
     Column(Modifier.padding(start = 6.dp, end = 10.dp, top = 10.dp, bottom = 12.dp)) {
         Row(verticalAlignment = Alignment.Top) {
             IconBtn(Icons.Filled.Menu, s.menu, onOpenMenu)
@@ -375,7 +378,7 @@ private fun Header(
             IconBtn(
                 Icons.Filled.ClearAll,
                 s.clearAll,
-                onClearSelection,
+                onClick = { confirmClear = true },
             )
             // стрелка «к плееру» — активна только при выборе
             IconBtn(
@@ -385,6 +388,19 @@ private fun Header(
                 tint = if (canGoToPlayer) fs.accent else fs.on3,
             )
         }
+    }
+    if (confirmClear) {
+        ConfirmDialog(
+            title = s.clearAll,
+            text = s.clearAllConfirm,
+            confirmLabel = s.clear,
+            cancelLabel = s.cancel,
+            onConfirm = {
+                confirmClear = false
+                onClearSelection()
+            },
+            onDismiss = { confirmClear = false },
+        )
     }
 }
 
@@ -564,15 +580,20 @@ private fun TreeList(
                     row.text,
                     Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
                 )
-                is Row.FolderRow -> FolderRowView(
-                    node = row.node,
-                    depth = row.depth,
-                    tag = row.tag,
-                    expandedNow = expanded.contains(row.node.path),
-                    checkState = vm.folderCheckState(row.node),
-                    onToggleSel = { vm.toggleFolderSelection(row.node) },
-                    onToggleExpand = { vm.toggleFolder(row.node.path) },
-                )
+                is Row.FolderRow -> {
+                    val segs = lib?.relativeSegments(row.node.path) ?: emptyList()
+                    FolderRowView(
+                        node = row.node,
+                        depth = row.depth,
+                        tag = row.tag,
+                        parentPath = if (segs.size > 1) segs.dropLast(1).joinToString(" / ") else null,
+                        inMusicBranch = segs.firstOrNull()?.let { StandardFolders.isStandard(it) } == true,
+                        expandedNow = expanded.contains(row.node.path),
+                        checkState = vm.folderCheckState(row.node),
+                        onToggleSel = { vm.toggleFolderSelection(row.node) },
+                        onToggleExpand = { vm.toggleFolder(row.node.path) },
+                    )
+                }
                 is Row.TrackRow -> TrackRowView(
                     track = row.track,
                     isCurrent = row.track.id == currentId,
@@ -598,6 +619,8 @@ private fun FolderRowView(
     node: FolderNode,
     depth: Int,
     tag: String?,
+    parentPath: String?,
+    inMusicBranch: Boolean,
     expandedNow: Boolean,
     checkState: CheckState,
     onToggleSel: () -> Unit,
@@ -609,8 +632,9 @@ private fun FolderRowView(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val folderView = LocalView.current
-    // стандартные каталоги музыки — плитка особого сине-серого цвета
-    val isStandard = StandardFolders.isStandard(node.name)
+    // музыкальные ветки (корень — стандартный каталог) на любой глубине вложения
+    // и любые папки со стандартным именем — плитка особого (standardGrad) цвета
+    val isStandard = StandardFolders.isStandard(node.name) || inMusicBranch
     val gradStart = if (isStandard) fs.standardGradStart else fs.folderGradStart
     val gradEnd = if (isStandard) fs.standardGradEnd else fs.folderGradEnd
     // zIndex: плашка подписи этой строки рисуется поверх черт нижних строк
@@ -623,8 +647,10 @@ private fun FolderRowView(
                 .padding(
                     start = 10.dp + NestIndentStep * depth,
                     end = 10.dp,
-                    top = 2.dp,
-                    bottom = 2.dp,
+                    // с путём сверху плитка сжимается по вертикали, чтобы её высота
+                    // была ближе к высоте верхних папок (без третьей строки)
+                    top = if (parentPath != null) 5.dp else 10.dp,
+                    bottom = if (parentPath != null) 5.dp else 10.dp,
                 )
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(15.dp))
@@ -661,10 +687,22 @@ private fun FolderRowView(
                 .weight(1f)
                 .padding(start = 11.dp)
         ) {
+            if (parentPath != null) {
+                Text(
+                    parentPath,
+                    color = Color.White.copy(alpha = 0.72f),
+                    fontSize = 10.5.sp,
+                    lineHeight = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
                 node.name,
                 color = Color.White,
                 fontSize = 15.sp,
+                lineHeight = if (parentPath != null) 18.sp else TextUnit.Unspecified,
                 fontWeight = FontWeight.W700,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -678,6 +716,7 @@ private fun FolderRowView(
                 },
                 color = Color.White.copy(alpha = 0.85f),
                 fontSize = 12.sp,
+                lineHeight = if (parentPath != null) 13.sp else TextUnit.Unspecified,
                 fontWeight = FontWeight.W600,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

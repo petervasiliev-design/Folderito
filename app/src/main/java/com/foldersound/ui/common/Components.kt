@@ -37,8 +37,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -520,6 +522,39 @@ fun Modifier.eqDot(visible: Boolean, color: Color): Modifier = drawWithContent {
             center = Offset(size.width - 14.dp.toPx(), 14.dp.toPx()),
         )
     }
+}
+
+/** Диалог подтверждения в цветах приложения. */
+@Composable
+fun ConfirmDialog(
+    title: String,
+    text: String,
+    confirmLabel: String,
+    cancelLabel: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val fs = Fs.c
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(title, color = fs.on, fontSize = 17.sp, fontWeight = FontWeight.W800)
+        },
+        text = {
+            Text(text, color = fs.on2, fontSize = 14.sp, fontWeight = FontWeight.W600)
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(confirmLabel, color = fs.accent, fontWeight = FontWeight.W800)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(cancelLabel, color = fs.on2, fontWeight = FontWeight.W700)
+            }
+        },
+        containerColor = fs.surf,
+    )
 }
 
 /**
