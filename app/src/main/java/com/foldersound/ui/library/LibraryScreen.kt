@@ -905,6 +905,11 @@ private fun PlaylistRowView(
                         )
                     ) else Brush.linearGradient(listOf(fs.playlistGradStart, fs.playlistGradEnd))
                 )
+                // удержание 2 с — играть плейлист (как у пилюль ±N с), тап — раскрыть
+                .holdToggle(timeoutMs = 2_000) {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                    onPlay()
+                }
                 .clickable(interactionSource = interaction, indication = null, onClick = onToggleExpand)
                 .padding(start = 7.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -958,16 +963,6 @@ private fun PlaylistRowView(
                     .rotate(if (expandedNow) 90f else 0f),
             )
         }
-        // удержание правее галочки — играть плейлист целиком; зона галочки не перекрыта
-        Box(
-            Modifier
-                .matchParentSize()
-                .padding(start = 52.dp)
-                .holdToggle {
-                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                    onPlay()
-                },
-        )
     }
 }
 

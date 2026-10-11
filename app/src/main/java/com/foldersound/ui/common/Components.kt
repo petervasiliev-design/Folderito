@@ -578,6 +578,10 @@ fun Modifier.holdToggle(
                 val event = awaitPointerEvent()
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                 if (!change.pressed) break
+                if (change.isConsumed) {
+                    // жест перехватил дочерний обработчик — это не наше удержание
+                    return@withTimeoutOrNull true
+                }
             }
             true
         } ?: false
