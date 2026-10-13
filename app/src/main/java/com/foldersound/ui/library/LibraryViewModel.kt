@@ -33,6 +33,45 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     /** Короткое имя папки режима быстрого проигрывания (пусто — режим неактивен). */
     val quickFolder = MutableStateFlow("")
 
+    /** Пути избранных папок — раздел «Избранное»; папки остаются и в основном дереве. */
+    val favorites = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Пути скрытых папок — исключаются из дерева, поиска и списка песен. */
+    val hidden = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Библиотека без скрытых веток — источник для дерева, поиска и «Списка песен». */
+    val visibleLibrary: StateFlow<Library?> = combine(_library, hidden) { lib, h ->
+        when {
+            lib == null -> null
+            h.isEmpty() -> lib
+            else -> filterHidden(lib, h)
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private fun filterHidden(lib: Library, hidden: Set<String>): Library {
+        fun copy(node: FolderNode): FolderNode {
+            val out = FolderNode(node.path, node.name)
+            node.children.values.forEach { child ->
+                if (child.path !in hidden) {
+                    val c = copy(child)
+                    out.children[c.path] = c
+                }
+            }
+            node.tracks.forEach { if (it.folderPath !in hidden) out.tracks.add(it) }
+            return out
+        }
+        val root = copy(lib.root)
+        val all = root.allTracks
+        return Library(
+            root = root,
+            rootPath = lib.rootPath,
+            allTracks = all,
+            foldersCount = root.foldersCount,
+            totalMs = all.sumOf { it.durationMs },
+            playlists = lib.playlists,
+        )
+    }
+
     val searchResults: StateFlow<List<Track>> = combine(query, _library) { q, lib ->
         val needle = q.trim().lowercase()
         if (needle.isEmpty()) {
@@ -51,6 +90,8 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
             // восстановление состояния прошлой сессии
             expanded.value = fsApp.settings.loadExpanded()
             selected.value = fsApp.settings.loadSelected()
+            favorites.value = fsApp.settings.loadFavorites()
+            hidden.value = fsApp.settings.loadHidden()
             quickFolder.value = fsApp.settings.loadQuickFolder()
             load()
         }
@@ -154,6 +195,48 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearSelection() {
         setSelected(emptySet())
+    }
+
+    /* ==================== избранное и скрытые папки ==================== */
+
+    /** Долгий тап по папке → «Добавить в избранное». Повторное — убирает. */
+    fun toggleFavorite(path: String) {
+        val next = favorites.value.toMutableSet()
+        if (!next.add(path)) next.remove(path)
+        favorites.value = next
+        viewModelScope.launch { fsApp.settings.saveFavorites(next) }
+    }
+
+    /** Удаление из списка в настройках. */
+    fun removeFromFavorites(path: String) {
+        if (path !in favorites.value) return
+        favorites.value = favorites.value - path
+        viewModelScope.launch { fsApp.settings.saveFavorites(favorites.value) }
+    }
+
+    /** «Спрятать»: папка исчезает из дерева, поиска и списка песен; из избранного убирается,
+     *  её треки снимаются с выделения. */
+    fun hideFolder(path: String) {
+        if (path in hidden.value) return
+        hidden.value = hidden.value + path
+        viewModelScope.launch { fsApp.settings.saveHidden(hidden.value) }
+        if (path in favorites.value) removeFromFavorites(path)
+        // снять с выделения треки скрытой ветки, чтобы не висели «мертвые» галочки
+        val lib = _library.value ?: return
+        val gone = lib.allTracks
+            .filter { it.folderPath == path || it.folderPath.startsWith("$path/") }
+            .map { it.id }
+            .toSet()
+        if (gone.any { it in selected.value }) {
+            setSelected(selected.value - gone)
+        }
+    }
+
+    /** Удаление из скрытых в настройках — дерево перерисовывается само (visibleLibrary). */
+    fun unhideFolder(path: String) {
+        if (path !in hidden.value) return
+        hidden.value = hidden.value - path
+        viewModelScope.launch { fsApp.settings.saveHidden(hidden.value) }
     }
 
     fun selectedTracks(): List<Track> {

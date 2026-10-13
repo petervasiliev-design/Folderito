@@ -28,7 +28,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BatteryAlert
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.Icon
@@ -60,6 +62,7 @@ import kotlin.math.roundToInt
 
 /**
  * Экран «Настройки»: язык, цветовая схема, кнопки перемотки и их шаг (5–60 с).
+ * Плюс списки избранных и скрытых папок с удалением (дерево перерисовывается само).
  * Таймер сна вынесен на отдельный экран (шторка → «Таймер сна»).
  */
 @Composable
@@ -73,6 +76,10 @@ fun SettingsScreen(
     onSetSeekButtons: (Boolean) -> Unit,
     seekStepSec: Int,
     onSetSeekStep: (Int) -> Unit,
+    favoriteFolders: List<Pair<String, String>> = emptyList(),
+    hiddenFolders: List<Pair<String, String>> = emptyList(),
+    onRemoveFavorite: (String) -> Unit = {},
+    onRemoveHidden: (String) -> Unit = {},
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
@@ -229,6 +236,66 @@ fun SettingsScreen(
                 )
             }
 
+            // избранные и скрытые папки: подсказка о добавлении, удаление из
+            // списка перерисовывает дерево; пустой список подписан
+            SectionLabel(s.favFoldersSection, Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp))
+            Column(
+                Modifier
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(fs.surf)
+                    .padding(vertical = 6.dp),
+            ) {
+                Text(
+                    s.favFoldersHint,
+                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = fs.on3,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.W600,
+                )
+                if (favoriteFolders.isEmpty()) {
+                    Text(
+                        s.listEmpty,
+                        Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        color = fs.on3,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.W600,
+                    )
+                } else {
+                    favoriteFolders.forEach { (path, label) ->
+                        FolderListRow(label) { onRemoveFavorite(path) }
+                    }
+                }
+            }
+
+            SectionLabel(s.hiddenFoldersSection, Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp))
+            Column(
+                Modifier
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(fs.surf)
+                    .padding(vertical = 6.dp),
+            ) {
+                Text(
+                    s.hiddenFoldersHint,
+                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = fs.on3,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.W600,
+                )
+                if (hiddenFolders.isEmpty()) {
+                    Text(
+                        s.listEmpty,
+                        Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        color = fs.on3,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.W600,
+                    )
+                } else {
+                    hiddenFolders.forEach { (path, label) ->
+                        FolderListRow(label) { onRemoveHidden(path) }
+                    }
+                }
+            }
+
             // защита от энергосберегающих оптимизаций (критично для Xiaomi/Huawei)
             val context = LocalContext.current
             val powerManager = remember {
@@ -281,6 +348,48 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+/** Строка списка избранных/скрытых папок: путь и кнопка удаления. */
+@Composable
+private fun FolderListRow(label: String, onRemove: () -> Unit) {
+    val fs = Fs.c
+    val s = LocalStrings.current
+    Row(
+        Modifier
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .fillMaxWidth()
+            .height(46.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Filled.Folder,
+            contentDescription = null,
+            tint = fs.on3,
+            modifier = Modifier.size(20.dp),
+        )
+        Text(
+            label,
+            Modifier
+                .weight(1f)
+                .padding(start = 12.dp),
+            color = fs.on,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.W600,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
+        IconBtn(
+            Icons.Filled.Cancel,
+            s.clear,
+            onRemove,
+            size = 36.dp,
+            iconSize = 20.dp,
+            tint = fs.on3,
+        )
     }
 }
 

@@ -71,14 +71,17 @@ fun SongsScreen(
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
-    val lib by vm.library.collectAsStateWithLifecycle()
+    // видимая библиотека — без скрытых папок (списки), полная — для мини-плеера,
+    // чтобы играющий трек скрытой папки не исчезал
+    val rawLib by vm.library.collectAsStateWithLifecycle()
+    val lib by vm.visibleLibrary.collectAsStateWithLifecycle()
     val selected by vm.selected.collectAsStateWithLifecycle()
 
     val connection = vm.connection
     val isPlaying by connection.isPlaying.collectAsStateWithLifecycle()
     val currentMediaId by connection.currentMediaId.collectAsStateWithLifecycle()
     val currentId = currentMediaId?.toLongOrNull()
-    val currentTrack = connection.displayTrack(lib)
+    val currentTrack = connection.displayTrack(rawLib)
     val queueIds by connection.queue.collectAsStateWithLifecycle()
 
     var position by remember { mutableLongStateOf(0L) }

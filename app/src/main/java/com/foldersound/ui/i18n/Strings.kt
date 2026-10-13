@@ -132,6 +132,15 @@ data class FsStrings(
     val playlistName: String,
     val save: String,
     val saveFailed: String,
+    val favorites: String,
+    val addToFavorites: String,
+    val removeFromFavorites: String,
+    val hideFolder: String,
+    val favFoldersSection: String,
+    val hiddenFoldersSection: String,
+    val favFoldersHint: String,
+    val hiddenFoldersHint: String,
+    val listEmpty: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -270,6 +279,15 @@ private val RuStrings = FsStrings(
     playlistName = "Название плейлиста",
     save = "Сохранить",
     saveFailed = "Не удалось сохранить плейлист",
+    favorites = "Избранное",
+    addToFavorites = "Добавить в избранное",
+    removeFromFavorites = "Убрать из избранного",
+    hideFolder = "Спрятать",
+    favFoldersSection = "Избранные папки",
+    hiddenFoldersSection = "Скрытые папки",
+    favFoldersHint = "Добавить папку: удержание 2 с на плитке папки в дереве → «Добавить в избранное»",
+    hiddenFoldersHint = "Скрыть папку: удержание 2 с на плитке папки в дереве → «Спрятать»",
+    listEmpty = "Список пуст",
 )
 
 private val EnStrings = FsStrings(
@@ -383,6 +401,15 @@ private val EnStrings = FsStrings(
     playlistName = "Playlist name",
     save = "Save",
     saveFailed = "Couldn't save the playlist",
+    favorites = "Favorites",
+    addToFavorites = "Add to favorites",
+    removeFromFavorites = "Remove from favorites",
+    hideFolder = "Hide",
+    favFoldersSection = "Favorite folders",
+    hiddenFoldersSection = "Hidden folders",
+    favFoldersHint = "To add a folder: hold a folder tile in the tree for 2 s → \"Add to favorites\"",
+    hiddenFoldersHint = "To hide a folder: hold a folder tile in the tree for 2 s → \"Hide\"",
+    listEmpty = "The list is empty",
 )
 
 fun stringsFor(langCode: String): FsStrings = if (langCode == "en") EnStrings else RuStrings

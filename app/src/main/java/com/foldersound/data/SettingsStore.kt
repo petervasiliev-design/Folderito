@@ -33,6 +33,8 @@ class SettingsStore(private val context: Context) {
         val SKIP_SILENCE = booleanPreferencesKey("skip_silence")
         val EXPANDED = stringSetPreferencesKey("expanded_folders")
         val SELECTED = stringSetPreferencesKey("selected_tracks")
+        val FAVORITES = stringSetPreferencesKey("favorite_folders")
+        val HIDDEN = stringSetPreferencesKey("hidden_folders")
         val PB_TRACK = longPreferencesKey("pb_track_id")
         val PB_POS = longPreferencesKey("pb_position_ms")
         val PB_QUEUE = stringPreferencesKey("pb_queue")
@@ -126,6 +128,22 @@ class SettingsStore(private val context: Context) {
         context.dataStore.data.first()[Keys.SELECTED]
             ?.mapNotNull { it.toLongOrNull() }
             ?.toSet() ?: emptySet()
+
+    /** Избранные папки (пути) — раздел «Избранное» после «Плейлистов». */
+    suspend fun saveFavorites(paths: Set<String>) {
+        context.dataStore.edit { it[Keys.FAVORITES] = paths }
+    }
+
+    suspend fun loadFavorites(): Set<String> =
+        context.dataStore.data.first()[Keys.FAVORITES] ?: emptySet()
+
+    /** Скрытые папки (пути) — не показываются нигде. */
+    suspend fun saveHidden(paths: Set<String>) {
+        context.dataStore.edit { it[Keys.HIDDEN] = paths }
+    }
+
+    suspend fun loadHidden(): Set<String> =
+        context.dataStore.data.first()[Keys.HIDDEN] ?: emptySet()
 
     /** Текущий трек и позиция в нём. */
     suspend fun savePlayback(trackId: Long, positionMs: Long) {

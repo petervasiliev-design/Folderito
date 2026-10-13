@@ -67,6 +67,14 @@ fun AppNav(
         ?: externalTrack.takeIf { currentMediaId == com.foldersound.playback.PlayerConnection.EXTERNAL_ID }
     val pathText = if (track != null && lib != null) lib!!.pathOf(track) else "—"
 
+    // списки избранных/скрытых папок для настроек: путь → отображаемый путь
+    val favorites by vm.favorites.collectAsStateWithLifecycle()
+    val hidden by vm.hidden.collectAsStateWithLifecycle()
+    fun displayPath(path: String): String =
+        lib?.relativeSegments(path)?.joinToString(" / ") ?: path
+    val favoriteFolders = favorites.map { it to displayPath(it) }.sortedBy { it.second.lowercase() }
+    val hiddenFolders = hidden.map { it to displayPath(it) }.sortedBy { it.second.lowercase() }
+
     fun push(screen: Screen) {
         if (stack.last() != screen) stack.add(screen)
     }
@@ -117,6 +125,10 @@ fun AppNav(
                 onSetSeekButtons = onSetSeekButtons,
                 seekStepSec = seekStepSec,
                 onSetSeekStep = onSetSeekStep,
+                favoriteFolders = favoriteFolders,
+                hiddenFolders = hiddenFolders,
+                onRemoveFavorite = vm::removeFromFavorites,
+                onRemoveHidden = vm::unhideFolder,
             )
             Screen.Songs -> com.foldersound.ui.songs.SongsScreen(
                 vm = vm,

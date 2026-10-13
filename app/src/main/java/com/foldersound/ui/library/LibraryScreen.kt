@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
@@ -119,7 +120,13 @@ import kotlinx.coroutines.delay
 
 private sealed interface Row {
     data class Label(val text: String) : Row
-    data class FolderRow(val node: FolderNode, val depth: Int, val tag: String? = null) : Row
+    data class FolderRow(
+        val node: FolderNode,
+        val depth: Int,
+        val tag: String? = null,
+        // папка может показываться и в «Избранном», и в дереве — ключи должны различаться
+        val keySuffix: String = "",
+    ) : Row
     data class TrackRow(
         val track: Track,
         val depth: Int,
@@ -137,11 +144,20 @@ private sealed interface Row {
 
 private const val PLAYLISTS_KEY = "@playlists"
 
+/** Поиск узла папки по полному пути (для избранных папок). */
+private fun FolderNode.findByPath(path: String): FolderNode? {
+    if (this.path == path) return this
+    children.values.forEach { it.findByPath(path)?.let { found -> return found } }
+    return null
+}
+
 private fun buildRows(
     lib: Library,
     expanded: Set<String>,
+    favorites: Set<String>,
     foldersLabel: String,
     tracksLabel: String,
+    favoritesLabel: String,
 ): List<Row> {
     val out = mutableListOf<Row>()
     val playlists = lib.playlists
@@ -164,6 +180,27 @@ private fun buildRows(
                         )
                     }
         }
+            }
+        }
+    }
+    // «Избранное» после «Плейлистов»: папки остаются и в основном дереве,
+    // поэтому всем их строкам добавляется суффикс ключа, чтобы не дублировать id
+    if (favorites.isNotEmpty()) {
+        val favNodes = favorites.mapNotNull { lib.root.findByPath(it) }
+            .sortedBy { it.path.lowercase() }
+        if (favNodes.isNotEmpty()) {
+            out += Row.Label(favoritesLabel)
+            favNodes.forEach { node ->
+                out += Row.FolderRow(node, depth = 0, keySuffix = "#fav")
+                if (expanded.contains(node.path)) {
+                    flatten(node, expanded, 1, false, foldersLabel, tracksLabel).forEach { r ->
+                        out += when (r) {
+                            is Row.FolderRow -> r.copy(keySuffix = "#fav")
+                            is Row.TrackRow -> r.copy(keySuffix = "#fav")
+                            else -> r
+                        }
+                    }
+                }
             }
         }
     }
@@ -219,13 +256,18 @@ fun LibraryScreen(
     val fs = Fs.c
     val s = LocalStrings.current
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val lib by vm.library.collectAsStateWithLifecycle()
+    // видимая библиотека — без скрытых папок: дерево, поиск, счётчики.
+    // Играющий трек скрытой папки по-прежнему виден в плеере (там своя логика)
+    val lib by vm.visibleLibrary.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
     val searchOpen by vm.searchOpen.collectAsStateWithLifecycle()
     val expanded by vm.expanded.collectAsStateWithLifecycle()
     val selected by vm.selected.collectAsStateWithLifecycle()
     val results by vm.searchResults.collectAsStateWithLifecycle()
     val quickFolder by vm.quickFolder.collectAsStateWithLifecycle()
+    val favorites by vm.favorites.collectAsStateWithLifecycle()
+
+    var menuFolder by remember { mutableStateOf<FolderNode?>(null) }
 
     val connection = vm.connection
     val isPlaying by connection.isPlaying.collectAsStateWithLifecycle()
@@ -298,9 +340,11 @@ fun LibraryScreen(
                         lib = lib!!,
                         expanded = expanded,
                         selected = selected,
+                        favorites = favorites,
                         vm = vm,
                         currentId = currentMediaId?.toLongOrNull(),
                         isPlaying = isPlaying,
+                        onFolderMenu = { menuFolder = it },
                     )
                 }
             }
@@ -381,6 +425,84 @@ fun LibraryScreen(
                 },
             )
         }
+
+        // меню папки (удержание 2 с): избранное / спрятать
+        menuFolder?.let { folder ->
+            FolderMenuDialog(
+                folderName = folder.name,
+                isFavorite = folder.path in favorites,
+                onToggleFavorite = {
+                    vm.toggleFavorite(folder.path)
+                    menuFolder = null
+                },
+                onHide = {
+                    vm.hideFolder(folder.path)
+                    menuFolder = null
+                },
+                onDismiss = { menuFolder = null },
+            )
+        }
+    }
+}
+
+/** Меню папки: добавить/убрать из избранного, спрятать, отмена. */
+@Composable
+private fun FolderMenuDialog(
+    folderName: String,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
+    onHide: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val fs = Fs.c
+    val s = LocalStrings.current
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(fs.surf2)
+                .border(1.dp, fs.outline, RoundedCornerShape(18.dp))
+                .padding(8.dp)
+        ) {
+            Text(
+                folderName,
+                Modifier.padding(start = 8.dp, top = 8.dp, bottom = 6.dp),
+                color = fs.on,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.W800,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            MenuRow(label = if (isFavorite) s.removeFromFavorites else s.addToFavorites, accent = true, onClick = onToggleFavorite)
+            MenuRow(label = s.hideFolder, accent = false, onClick = onHide)
+            MenuRow(label = s.cancel, accent = false, onClick = onDismiss)
+        }
+    }
+}
+
+@Composable
+private fun MenuRow(label: String, accent: Boolean, onClick: () -> Unit) {
+    val fs = Fs.c
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            Modifier.weight(1f),
+            color = if (accent) fs.accent else fs.on,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.W700,
+        )
     }
 }
 
@@ -784,14 +906,18 @@ private fun TreeList(
     lib: Library,
     expanded: Set<String>,
     selected: Set<Long>,
+    favorites: Set<String>,
     vm: LibraryViewModel,
     currentId: Long?,
     isPlaying: Boolean,
+    onFolderMenu: (FolderNode) -> Unit,
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val rows = remember(lib, expanded, s) { buildRows(lib, expanded, s.folders, s.tracks) }
+    val rows = remember(lib, expanded, favorites, s) {
+        buildRows(lib, expanded, favorites, s.folders, s.tracks, s.favorites)
+    }
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp + navBottom),
@@ -801,11 +927,13 @@ private fun TreeList(
             lib = lib,
             expanded = expanded,
             selected = selected,
+            favorites = favorites,
             vm = vm,
             currentId = currentId,
             isPlaying = isPlaying,
             query = "",
             s = s,
+            onFolderMenu = onFolderMenu,
         )
     }
 }
@@ -820,16 +948,18 @@ private fun LazyListScope.treeRows(
     lib: Library,
     expanded: Set<String>,
     selected: Set<Long>,
+    favorites: Set<String>,
     vm: LibraryViewModel,
     currentId: Long?,
     isPlaying: Boolean,
     query: String,
     s: FsStrings,
+    onFolderMenu: (FolderNode) -> Unit,
 ) {
     items(rows, key = {
         when (it) {
             is Row.Label -> "l${it.text}"
-            is Row.FolderRow -> "f${it.node.path}"
+            is Row.FolderRow -> "f${it.node.path}${it.keySuffix}"
             is Row.TrackRow -> "t${it.track.id}${it.keySuffix}"
             is Row.PlaylistFolderRow -> "f$PLAYLISTS_KEY"
             is Row.PlaylistRow -> "p${it.playlist.path}"
@@ -850,8 +980,10 @@ private fun LazyListScope.treeRows(
                     inMusicBranch = segs.firstOrNull()?.let { StandardFolders.isStandard(it) } == true,
                     expandedNow = expanded.contains(row.node.path),
                     checkState = vm.folderCheckState(row.node),
+                    isFavorite = row.node.path in favorites,
                     onToggleSel = { vm.toggleFolderSelection(row.node) },
                     onToggleExpand = { vm.toggleFolder(row.node.path) },
+                    onLongPress = { onFolderMenu(row.node) },
                     query = query,
                 )
             }
@@ -904,8 +1036,12 @@ private fun FolderRowView(
     inMusicBranch: Boolean,
     expandedNow: Boolean,
     checkState: CheckState,
+    /** Папка в избранном — звезда справа, слева от стрелки раскрытия. */
+    isFavorite: Boolean = false,
     onToggleSel: () -> Unit,
     onToggleExpand: () -> Unit,
+    /** Удержание 2 с — меню «избранное/спрятать»; null — жест выключен (поиск). */
+    onLongPress: (() -> Unit)? = null,
     query: String = "",
 ) {
     val fs = Fs.c
@@ -940,6 +1076,18 @@ private fun FolderRowView(
                     if (pressed) Brush.linearGradient(
                         listOf(gradStart.copy(alpha = 0.88f), gradEnd.copy(alpha = 0.88f))
                     ) else Brush.linearGradient(listOf(gradStart, gradEnd))
+                )
+                // удержание 2 с — меню папки (holdToggle первым в цепочке: тап не
+                // consumed и доходит до clickable, удержание добивается само)
+                .then(
+                    if (onLongPress == null) {
+                        Modifier
+                    } else {
+                        Modifier.holdToggle(timeoutMs = 2_000) {
+                            folderView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                            onLongPress()
+                        }
+                    }
                 )
                 .clickable(interactionSource = interaction, indication = null, onClick = onToggleExpand)
                 .padding(start = 7.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
@@ -1008,6 +1156,16 @@ private fun FolderRowView(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+            if (isFavorite) {
+                Icon(
+                    Icons.Filled.Star,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier
+                        .padding(start = 2.dp, end = 6.dp)
+                        .size(20.dp),
+                )
+            }
             Icon(
                 Icons.Outlined.KeyboardArrowRight,
                 contentDescription = if (expandedNow) s.collapse else s.expand,
