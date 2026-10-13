@@ -1043,10 +1043,10 @@ private fun PlaylistFolderRowView(
                 .background(
                     if (pressed) Brush.linearGradient(
                         listOf(
-                            fs.playlistGradStart.copy(alpha = 0.88f),
-                            fs.playlistGradEnd.copy(alpha = 0.88f),
+                            fs.standardGradStart.copy(alpha = 0.88f),
+                            fs.standardGradEnd.copy(alpha = 0.88f),
                         )
-                    ) else Brush.linearGradient(listOf(fs.playlistGradStart, fs.playlistGradEnd))
+                    ) else Brush.linearGradient(listOf(fs.standardGradStart, fs.standardGradEnd))
                 )
                 .clickable(interactionSource = interaction, indication = null, onClick = onToggleExpand)
                 .padding(start = 7.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
@@ -1125,10 +1125,10 @@ private fun PlaylistRowView(
                 .background(
                     if (pressed) Brush.linearGradient(
                         listOf(
-                            fs.playlistGradStart.copy(alpha = 0.88f),
-                            fs.playlistGradEnd.copy(alpha = 0.88f),
+                            fs.standardGradStart.copy(alpha = 0.88f),
+                            fs.standardGradEnd.copy(alpha = 0.88f),
                         )
-                    ) else Brush.linearGradient(listOf(fs.playlistGradStart, fs.playlistGradEnd))
+                    ) else Brush.linearGradient(listOf(fs.standardGradStart, fs.standardGradEnd))
                 )
                 // удержание 2 с — играть плейлист (как у пилюль ±N с), тап — раскрыть
                 .holdToggle(timeoutMs = 2_000) {
