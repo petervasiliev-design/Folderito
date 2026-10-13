@@ -128,6 +128,10 @@ data class FsStrings(
     val searchDesc: String,
     val collapseAllDesc: String,
     val clearAllDesc: String,
+    val savePlaylist: String,
+    val playlistName: String,
+    val save: String,
+    val saveFailed: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -262,6 +266,10 @@ private val RuStrings = FsStrings(
     searchDesc = "Поиск по названию, исполнителю и альбому",
     collapseAllDesc = "Сворачивает дерево папок до корня",
     clearAllDesc = "Снимает выделение со всех папок и треков",
+    savePlaylist = "Сохранить плейлист",
+    playlistName = "Название плейлиста",
+    save = "Сохранить",
+    saveFailed = "Не удалось сохранить плейлист",
 )
 
 private val EnStrings = FsStrings(
@@ -371,6 +379,10 @@ private val EnStrings = FsStrings(
     searchDesc = "Search by title, artist and album",
     collapseAllDesc = "Collapses the folder tree to the root",
     clearAllDesc = "Clears the selection of all folders and tracks",
+    savePlaylist = "Save playlist",
+    playlistName = "Playlist name",
+    save = "Save",
+    saveFailed = "Couldn't save the playlist",
 )
 
 fun stringsFor(langCode: String): FsStrings = if (langCode == "en") EnStrings else RuStrings

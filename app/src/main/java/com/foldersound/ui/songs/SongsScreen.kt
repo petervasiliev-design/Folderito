@@ -16,13 +16,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,8 +38,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -94,6 +104,8 @@ fun SongsScreen(
     }
 
     var confirmClear by remember { mutableStateOf(false) }
+    var saveDialog by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -122,6 +134,12 @@ fun SongsScreen(
                 fontWeight = FontWeight.W800,
                 letterSpacing = 2.2.sp,
                 textAlign = TextAlign.Center,
+            )
+            com.foldersound.ui.common.IconBtn(
+                Icons.Filled.PlaylistAdd,
+                s.savePlaylist,
+                // сохраняет показанный список: выделение, а без выделения — очередь
+                onClick = if (tracks.isEmpty()) ({ /* сохранять нечего */ }) else ({ saveError = false; saveDialog = true }),
             )
             com.foldersound.ui.common.IconBtn(
                 Icons.Filled.Cancel,
@@ -203,5 +221,70 @@ fun SongsScreen(
                 onDismiss = { confirmClear = false },
             )
         }
+
+        if (saveDialog) {
+            SavePlaylistDialog(
+                error = saveError,
+                onDismiss = { saveDialog = false },
+                onSave = { name ->
+                    vm.savePlaylist(name, tracks) { ok ->
+                        if (ok) saveDialog = false else saveError = true
+                    }
+                },
+            )
+        }
     }
+}
+
+/** Диалог сохранения плейлиста: поле имени с автофокусом, «Сохранить»/«Отмена». */
+@Composable
+private fun SavePlaylistDialog(
+    error: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    val fs = Fs.c
+    val s = LocalStrings.current
+    var name by remember { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        focus.requestFocus()
+        keyboard?.show()
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(s.savePlaylist, color = fs.on, fontSize = 17.sp, fontWeight = FontWeight.W800)
+        },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                label = { Text(s.playlistName) },
+                isError = error,
+                supportingText = if (error) {
+                    { Text(s.saveFailed) }
+                } else null,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { if (name.isNotBlank()) onSave(name) }),
+                modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(name) },
+                enabled = name.isNotBlank(),
+            ) {
+                Text(s.save, color = fs.accent, fontWeight = FontWeight.W800)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(s.cancel, color = fs.on2, fontWeight = FontWeight.W700)
+            }
+        },
+        containerColor = fs.surf,
+    )
 }

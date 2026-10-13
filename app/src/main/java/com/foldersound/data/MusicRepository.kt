@@ -1,5 +1,6 @@
 package com.foldersound.data
 
+import android.content.ContentValues
 import android.content.Context
 import android.os.Build
 import android.provider.MediaStore
@@ -168,6 +169,91 @@ class MusicRepository(private val context: Context) {
         }
         out.sortWith { a, b -> collator.compare(a.name, b.name) }
         return out
+    }
+
+    /**
+     * Сохраняет плейлист файлом .m3u в общий каталог Playlists/ (через MediaStore —
+     * без разрешений на Q+; сканер плейлистов находит его в разделе «Плейлисты»).
+     * При совпадении имён создаёт копию: «Имя», «Имя (2)», «Имя (3)»…
+     * Возвращает фактическое имя сохранённого файла (без расширения) или null при ошибке.
+     */
+    suspend fun savePlaylist(name: String, tracks: List<Track>): String? = withContext(Dispatchers.IO) {
+        val safe = name.replace(Regex("[\\\\/:*?\"<>|]"), " ").trim()
+        if (safe.isEmpty() || tracks.isEmpty()) return@withContext null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            savePlaylistMediaStore(safe, tracks)
+        } else {
+            savePlaylistLegacy(safe, tracks)
+        }
+    }
+
+    @Suppress("DEPRECATION") // DISPLAY_NAME у плейлистов работает, но помечен устаревшим
+    private fun savePlaylistMediaStore(safe: String, tracks: List<Track>): String? {
+        val resolver = context.contentResolver
+        val collection = MediaStore.Audio.Playlists.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        // имена уже занятых плейлистов — для суффикса « (2)», « (3)»…
+        val existing = HashSet<String>()
+        try {
+            resolver.query(
+                collection,
+                arrayOf(MediaStore.Audio.Playlists.DISPLAY_NAME),
+                null, null, null,
+            )?.use { c ->
+                val iName = c.getColumnIndexOrThrow(MediaStore.Audio.Playlists.DISPLAY_NAME)
+                while (c.moveToNext()) {
+                    existing.add(c.getString(iName)?.trim()?.lowercase() ?: "")
+                }
+            }
+        } catch (_: Exception) {
+            // список имён недоступен — просто пробуем вставить, MediaStore сам разрулит коллизию
+        }
+        var candidate = safe
+        var n = 2
+        while ((candidate + ".m3u").lowercase() in existing) {
+            candidate = "$safe ($n)"
+            n++
+        }
+
+        val values = ContentValues().apply {
+            put(MediaStore.Audio.Playlists.DISPLAY_NAME, "$candidate.m3u")
+            // на Q+ каталог Playlists недоступен: MediaStore разрешает [Music, Movies]
+            put(MediaStore.Audio.Playlists.RELATIVE_PATH, "Music/Плейлисты")
+            put(MediaStore.Audio.Playlists.IS_PENDING, 1)
+        }
+        return try {
+            val item = resolver.insert(collection, values) ?: return null
+            resolver.openOutputStream(item)?.use { stream ->
+                stream.write(playlistContent(tracks).toByteArray(Charsets.UTF_8))
+            } ?: return null
+            values.clear()
+            values.put(MediaStore.Audio.Playlists.IS_PENDING, 0)
+            resolver.update(item, values, null, null)
+            candidate
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** До Android 10 — прямая запись; без WRITE_EXTERNAL_STORAGE вернёт null. */
+    private fun savePlaylistLegacy(safe: String, tracks: List<Track>): String? {
+        val dir = File("/storage/emulated/0/Playlists")
+        val candidate = "$safe.m3u"
+        return try {
+            if (!dir.isDirectory && !dir.mkdirs()) return null
+            File(dir, candidate).writeText(playlistContent(tracks), Charsets.UTF_8)
+            safe
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Формат .m3u: абсолютные пути построчно (сканер сопоставляет их с треками). */
+    private fun playlistContent(tracks: List<Track>): String = buildString {
+        append("#EXTM3U\n")
+        for (t in tracks) {
+            append(t.path.trim())
+            append('\n')
+        }
     }
 
     private fun buildLibrary(sortedTracks: List<Track>): Library {

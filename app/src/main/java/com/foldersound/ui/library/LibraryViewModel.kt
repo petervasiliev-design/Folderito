@@ -175,6 +175,20 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         connection.playQueue(list, index)
     }
 
+    /** Сохранить показанный список песен файлом .m3u (раздел «Плейлисты»).
+     *  [onDone] = true, если файл записан; библиотека перечитывается сама. */
+    fun savePlaylist(name: String, tracks: List<Track>, onDone: (Boolean) -> Unit) {
+        if (tracks.isEmpty()) {
+            onDone(false)
+            return
+        }
+        viewModelScope.launch {
+            val ok = fsApp.repository.savePlaylist(name, tracks) != null
+            if (ok) load() // плейлист появляется в дереве без перезапуска
+            onDone(ok)
+        }
+    }
+
     /** Быстрое проигрывание: двойной тап по треку дерева без выделения —
      *  играет всю папку трека с этой песни (перемешивание и повтор применяются
      *  как обычно; повтор выключен — стоп после папки). */
