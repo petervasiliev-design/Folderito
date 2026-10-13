@@ -9,15 +9,18 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -35,13 +38,17 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -69,6 +76,7 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.AnnotatedString
@@ -87,6 +95,7 @@ import coil.compose.AsyncImage
 import com.foldersound.ui.icons.FsIcons
 import com.foldersound.ui.theme.Fs
 import com.foldersound.ui.theme.FsColors
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 
@@ -458,6 +467,7 @@ fun VSlider(
 
 /* ==================== круглая кнопка-иконка ==================== */
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun IconBtn(
     icon: ImageVector,
@@ -467,20 +477,39 @@ fun IconBtn(
     size: Dp = 42.dp,
     iconSize: Dp = 22.dp,
     tint: Color = Fs.c.on,
+    /** Непустой заголовок — долгий тап по кнопке открывает окно с описанием. */
+    hintTitle: String? = null,
+    hintDesc: String = "",
 ) {
     val interaction = remember { MutableInteractionSource() }
-    Box(
-        modifier
-            .size(size)
-            .clip(CircleShape)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            icon,
-            contentDescription = contentDescription,
-            tint = tint,
-            modifier = Modifier.size(iconSize),
+    var hintShown by remember { mutableStateOf(false) }
+    val view = LocalView.current
+    Box(modifier) {
+        Box(
+            modifier
+                .size(size)
+                .clip(CircleShape)
+                // удержание 2 с — окно с описанием; быстрый тап — действие
+                .holdToggle(timeoutMs = 1_000) {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                    hintShown = true
+                }
+                .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = Modifier.size(iconSize),
+            )
+        }
+    }
+    if (hintShown) {
+        HintDialog(
+            title = hintTitle ?: "",
+            desc = hintDesc,
+            onDismiss = { hintShown = false },
         )
     }
 }
@@ -560,6 +589,64 @@ fun ConfirmDialog(
         },
         containerColor = fs.surf,
     )
+}
+
+/** Окно-подсказка поверх UI: иконка Info, заголовок, описание, крестик закрытия. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun HintDialog(title: String, desc: String, onDismiss: () -> Unit) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(Fs.c.surf2)
+                .border(1.dp, Fs.c.outline, RoundedCornerShape(18.dp))
+                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.Info,
+                    contentDescription = null,
+                    tint = Fs.c.accent,
+                    modifier = Modifier.size(24.dp),
+                )
+                Text(
+                    title,
+                    Modifier.weight(1f).padding(start = 10.dp),
+                    color = Fs.c.on,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.W800,
+                )
+                Box(
+                    Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .combinedClickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { onDismiss() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = null,
+                        tint = Fs.c.on2,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+            if (desc.isNotEmpty()) {
+                Text(
+                    desc,
+                    Modifier.padding(top = 10.dp),
+                    color = Fs.c.on2,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W600,
+                )
+            }
+        }
+    }
 }
 
 /**

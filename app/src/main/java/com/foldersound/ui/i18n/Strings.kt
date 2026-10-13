@@ -32,6 +32,7 @@ data class FsStrings(
     val folders: String,
     val tracks: String,
     val playlists: String,
+    val songsGroup: String,
     val selectionEmpty: String,
     val search: String,
     val searchHint: String,
@@ -124,6 +125,9 @@ data class FsStrings(
     val clarityTitle: String,
     val clarityHint: String,
     val seekHoldHint: String,
+    val searchDesc: String,
+    val collapseAllDesc: String,
+    val clearAllDesc: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -156,6 +160,7 @@ private val RuStrings = FsStrings(
     folders = "Папки",
     tracks = "Треки",
     playlists = "Плейлисты",
+    songsGroup = "Песни",
     selectionEmpty = "Ничего не выбрано — отметьте песни в дереве",
     search = "Поиск",
     searchHint = "Трек, исполнитель или альбом…",
@@ -254,6 +259,9 @@ private val RuStrings = FsStrings(
     clarityTitle = "Четкость речи",
     clarityHint = "Голосовой пресет — выключает эквалайзер",
     seekHoldHint = "Удержание кнопок перемотки в плеере 2 с открывает эту настройку",
+    searchDesc = "Поиск по названию, исполнителю и альбому",
+    collapseAllDesc = "Сворачивает дерево папок до корня",
+    clearAllDesc = "Снимает выделение со всех папок и треков",
 )
 
 private val EnStrings = FsStrings(
@@ -261,6 +269,7 @@ private val EnStrings = FsStrings(
     folders = "Folders",
     tracks = "Tracks",
     playlists = "Playlists",
+    songsGroup = "Songs",
     selectionEmpty = "Nothing selected — check songs in the tree",
     search = "Search",
     searchHint = "Track, artist or album…",
@@ -359,6 +368,9 @@ private val EnStrings = FsStrings(
     clarityTitle = "Speech clarity",
     clarityHint = "Voice preset — turns the equalizer off",
     seekHoldHint = "Hold the seek buttons in the player for 2 s to open this setting",
+    searchDesc = "Search by title, artist and album",
+    collapseAllDesc = "Collapses the folder tree to the root",
+    clearAllDesc = "Clears the selection of all folders and tracks",
 )
 
 fun stringsFor(langCode: String): FsStrings = if (langCode == "en") EnStrings else RuStrings
