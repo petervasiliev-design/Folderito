@@ -18,7 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -69,6 +69,7 @@ fun SongsScreen(
     val currentMediaId by connection.currentMediaId.collectAsStateWithLifecycle()
     val currentId = currentMediaId?.toLongOrNull()
     val currentTrack = connection.displayTrack(lib)
+    val queueIds by connection.queue.collectAsStateWithLifecycle()
 
     var position by remember { mutableLongStateOf(0L) }
     LaunchedEffect(isPlaying, currentMediaId) {
@@ -78,9 +79,18 @@ fun SongsScreen(
         }
     }
 
-    // «Список песен» = текущий выбор галочками (живьём): 20 в дереве — 20 здесь
-    val tracks = remember(lib, selected) {
-        lib?.allTracks?.filter { selected.contains(it.id) } ?: emptyList()
+    // «Список песен» = текущий выбор галочками (живьём): 20 в дереве — 20 здесь.
+    // Без выделения, но с играющей очередью (быстрое проигрывание папки) —
+    // показываем песни этой папки из очереди, в её текущем порядке.
+    val queueMode = selected.isEmpty() && queueIds.isNotEmpty()
+    val tracks = remember(lib, selected, queueIds) {
+        when {
+            selected.isNotEmpty() ->
+                lib?.allTracks?.filter { selected.contains(it.id) } ?: emptyList()
+            queueMode ->
+                queueIds.mapNotNull { id -> lib?.trackById?.get(id) }
+            else -> emptyList()
+        }
     }
 
     var confirmClear by remember { mutableStateOf(false) }
@@ -114,7 +124,7 @@ fun SongsScreen(
                 textAlign = TextAlign.Center,
             )
             com.foldersound.ui.common.IconBtn(
-                Icons.Filled.ClearAll,
+                Icons.Filled.Cancel,
                 s.clearAll,
                 onClick = { confirmClear = true },
             )
@@ -146,8 +156,13 @@ fun SongsScreen(
                                 onToggleSel = null,
                                 playOnLongPress = true,
                                 onPlay = {
-                                    // играть весь выбранный список с этой песни
-                                    vm.playFrom(tracks, tracks.indexOf(track))
+                                    if (queueMode) {
+                                        // играть текущую очередь с этой песни — без пересборки
+                                        connection.playAt(queueIds.indexOf(track.id))
+                                    } else {
+                                        // играть весь выбранный список с этой песни
+                                        vm.playFrom(tracks, tracks.indexOf(track))
+                                    }
                                 },
                                 isPlaying = isPlaying,
                             )

@@ -34,13 +34,15 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
@@ -67,6 +69,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -82,6 +87,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.foldersound.ui.icons.FsIcons
 import com.foldersound.ui.i18n.AppLang
+import com.foldersound.ui.i18n.FsStrings
 import com.foldersound.ui.i18n.LocalStrings
 import com.foldersound.ui.theme.ThemeMode
 import com.foldersound.data.FolderNode
@@ -120,6 +126,8 @@ private sealed interface Row {
         val tag: String? = null,
         // трек может входить в несколько плейлистов — ключ должен остаться уникальным
         val keySuffix: String = "",
+        /** Трек из развёрнутого плейлиста — быстрое проигрывание на нём не действует. */
+        val fromPlaylist: Boolean = false,
     ) : Row
 
     /** Синтетическая папка «Плейлисты» — первая плитка корня. */
@@ -145,13 +153,17 @@ private fun buildRows(
         if (expanded.contains(PLAYLISTS_KEY)) {
             playlists.forEach { playlist ->
                 out += Row.PlaylistRow(playlist, depth = 1)
-                if (expanded.contains(playlist.path)) {
-                    // подпись на черте — только у блоков с достаточным числом строк (≥3)
-                    val tag = if (playlist.tracks.size >= 3) playlist.name else null
+        if (expanded.contains(playlist.path)) {
+            // треки плейлиста — без вертикальных подписей-названий на черте
                     playlist.tracks.forEach {
-                        out += Row.TrackRow(it, depth = 2, tag = tag, keySuffix = "#p${playlist.path}")
+                        out += Row.TrackRow(
+                            it,
+                            depth = 2,
+                            keySuffix = "#p${playlist.path}",
+                            fromPlaylist = true,
+                        )
                     }
-                }
+        }
             }
         }
     }
@@ -213,6 +225,7 @@ fun LibraryScreen(
     val expanded by vm.expanded.collectAsStateWithLifecycle()
     val selected by vm.selected.collectAsStateWithLifecycle()
     val results by vm.searchResults.collectAsStateWithLifecycle()
+    val quickFolder by vm.quickFolder.collectAsStateWithLifecycle()
 
     val connection = vm.connection
     val isPlaying by connection.isPlaying.collectAsStateWithLifecycle()
@@ -229,9 +242,10 @@ fun LibraryScreen(
     }
     BackHandler(enabled = drawerOpen) { drawerOpen = false }
 
-    // свайп влево → плеер, только если что-то выбрано (и шторка закрыта)
+    // свайп влево → плеер: при выборе или когда что-то играет (быстрое
+    // проигрывание без выделения тоже должно быть видно в плеере)
     fun tryOpenPlayer() {
-        if (!drawerOpen && selected.isNotEmpty()) onOpenPlayer()
+        if (!drawerOpen && (selected.isNotEmpty() || isPlaying)) onOpenPlayer()
     }
 
     Box(
@@ -259,7 +273,7 @@ fun LibraryScreen(
                         onOpenSearch = { vm.openSearch(true) },
                         onCollapseAll = vm::collapseAll,
                         onClearSelection = vm::clearSelection,
-                        canGoToPlayer = selected.isNotEmpty(),
+                        canGoToPlayer = selected.isNotEmpty() || isPlaying,
                         onOpenPlayer = ::tryOpenPlayer,
                     )
                 }
@@ -276,6 +290,9 @@ fun LibraryScreen(
                         lib = lib!!,
                         currentId = currentMediaId?.toLongOrNull(),
                         isPlaying = isPlaying,
+                        expanded = expanded,
+                        selected = selected,
+                        vm = vm,
                     )
                     else -> TreeList(
                         lib = lib!!,
@@ -310,8 +327,16 @@ fun LibraryScreen(
                             onOpen = onOpenPlayer,
                         )
                     } else {
-                        // без выбора — панель-подсказка, переходы на другие экраны закрыты
-                        NothingSelectedBar()
+                        // без выбора — панель-подсказка; в быстром проигрывании
+                        // имя папки + транспорт (назад / play-пауза / вперёд)
+                        NothingSelectedBar(
+                            quickFolder = quickFolder.ifEmpty { null },
+                            isPlaying = isPlaying,
+                            onTogglePlay = connection::togglePlay,
+                            onPrev = connection::previous,
+                            onNext = connection::next,
+                            onOpen = onOpenPlayer,
+                        )
                     }
                 }
             }
@@ -413,16 +438,26 @@ private fun Header(
                     )
                 }
             }
-            IconBtn(Icons.Filled.Search, s.search, onOpenSearch)
+            IconBtn(
+                Icons.Filled.Search,
+                s.search,
+                onOpenSearch,
+                hintTitle = s.search,
+                hintDesc = s.searchDesc,
+            )
             IconBtn(
                 Icons.Filled.UnfoldLess,
                 s.collapseAllFolders,
                 onCollapseAll,
+                hintTitle = s.collapseAllFolders,
+                hintDesc = s.collapseAllDesc,
             )
             IconBtn(
-                Icons.Filled.ClearAll,
+                Icons.Filled.Cancel,
                 s.clearAll,
                 onClick = { confirmClear = true },
+                hintTitle = s.clearAll,
+                hintDesc = s.clearAllDesc,
             )
             // стрелка «к плееру» — активна только при выборе
             IconBtn(
@@ -448,9 +483,17 @@ private fun Header(
     }
 }
 
-/** Панель-подсказка, когда выбор пуст: переходы на другие экраны закрыты. */
+/** Панель при пустом выборе. В быстром проигрывании — имя папки и транспорт,
+ *  как у панели выбора (назад / play-пауза / вперёд); тап по корпусу открывает плеер. */
 @Composable
-private fun NothingSelectedBar() {
+private fun NothingSelectedBar(
+    quickFolder: String? = null,
+    isPlaying: Boolean = false,
+    onTogglePlay: () -> Unit = {},
+    onPrev: () -> Unit = {},
+    onNext: () -> Unit = {},
+    onOpen: () -> Unit = {},
+) {
     val fs = Fs.c
     val s = LocalStrings.current
     Row(
@@ -460,7 +503,19 @@ private fun NothingSelectedBar() {
             .clip(RoundedCornerShape(18.dp))
             .background(fs.surf2)
             .border(1.dp, fs.outline, RoundedCornerShape(18.dp))
-            .padding(start = 12.dp, end = 12.dp, top = 9.dp, bottom = 9.dp),
+            .then(
+                if (quickFolder == null) {
+                    Modifier
+                } else {
+                    // клик по корпусу панели открывает плеер (кнопки перехватывают свои тапы сами)
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onOpen,
+                    )
+                }
+            )
+            .padding(start = 12.dp, end = 10.dp, top = 9.dp, bottom = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -470,15 +525,51 @@ private fun NothingSelectedBar() {
                 .background(fs.surf3),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.QueueMusic, contentDescription = null, tint = fs.on3, modifier = Modifier.size(22.dp))
+            Icon(
+                Icons.Filled.QueueMusic,
+                contentDescription = null,
+                tint = if (quickFolder != null) fs.accent else fs.on3,
+                modifier = Modifier.size(22.dp),
+            )
         }
         Text(
-            s.nothingSelected,
-            Modifier.padding(start = 11.dp),
-            color = fs.on2,
+            // быстрое проигрывание: только имя папки, без пояснений
+            quickFolder ?: s.nothingSelected,
+            Modifier
+                .weight(1f)
+                .padding(start = 11.dp),
+            color = if (quickFolder != null) fs.on else fs.on2,
             fontSize = 13.5.sp,
             fontWeight = FontWeight.W700,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
+        if (quickFolder != null) {
+            // транспорт, как у панели выбора: назад / play-пауза / вперёд
+            IconBtn(Icons.Filled.SkipPrevious, s.prevTrack, onPrev, size = 40.dp, iconSize = 22.dp)
+            Box(
+                Modifier
+                    .padding(start = 4.dp)
+                    .size(44.dp)
+                    .shadow(8.dp, CircleShape)
+                    .clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(fs.fabGradStart, fs.primary)))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onTogglePlay,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = s.playPause,
+                    tint = fs.onAccent,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            IconBtn(Icons.Filled.SkipNext, s.nextTrack, onNext, size = 40.dp, iconSize = 22.dp)
+        }
     }
 }
 
@@ -494,6 +585,13 @@ private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier {
 private fun SearchRow(query: String, onQuery: (String) -> Unit, onClose: () -> Unit) {
     val fs = Fs.c
     val s = LocalStrings.current
+    // при открытии поиска фокус в поле — клавиатура появляется сразу
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboard?.show()
+    }
     Row(
         Modifier.padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -518,6 +616,7 @@ private fun SearchRow(query: String, onQuery: (String) -> Unit, onClose: () -> U
                 ),
                 cursorBrush = Brush.verticalGradient(listOf(fs.accent, fs.accent)),
                 modifier = Modifier
+                    .focusRequester(focusRequester)
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 decorationBox = { inner ->
@@ -548,15 +647,35 @@ private fun SearchResults(
     lib: Library,
     currentId: Long?,
     isPlaying: Boolean,
+    expanded: Set<String>,
+    selected: Set<Long>,
+    vm: LibraryViewModel,
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    // папки, чьё имя содержит запрос (собственное имя, регистр не важен); DFS — порядок уже отсортирован
+    val folderMatches = remember(lib, query) {
+        val needle = query.trim().lowercase()
+        val out = ArrayList<FolderNode>()
+        if (needle.isNotEmpty()) {
+            fun walk(node: FolderNode) {
+                node.children.values.forEach { child ->
+                    if (child.name.trim().lowercase().contains(needle)) out.add(child)
+                    walk(child)
+                }
+            }
+            walk(lib.root)
+        }
+        out
+    }
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp + navBottom),
     ) {
-        if (results.isEmpty()) {
+        if (folderMatches.isEmpty() && results.isEmpty()) {
             item {
                 Column(
                     Modifier.fillMaxWidth().padding(vertical = 60.dp),
@@ -571,21 +690,86 @@ private fun SearchResults(
                     )
                 }
             }
-        } else {
+        }
+        if (folderMatches.isNotEmpty()) {
             item {
                 SectionLabel(
-                    "${s.found} · ${s.plural(results.size, s.pTracks)}",
+                    s.folders,
                     Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
                 )
             }
-            items(results, key = { "s${it.id}" }) { track ->
+            // плоский список строк: найденные папки схлопнуты, развёрнутые — их поддеревья.
+            // Совпадение, чей предок — тоже совпадение и развёрнут, пропускается наверху:
+            // он уже виден внутри родителя (иначе LazyColumn получает дублирующийся ключ)
+            val folderRows = ArrayList<Row>(folderMatches.size)
+            folderMatches.forEach { node ->
+                val hiddenInParent = folderMatches.any { other ->
+                    other !== node && expanded.contains(other.path) &&
+                        node.path.startsWith(other.path + "/")
+                }
+                if (hiddenInParent) return@forEach
+                if (expanded.contains(node.path)) {
+                    folderRows += flatten(node, expanded, 1, false, s.folders, s.tracks)
+                } else {
+                    folderRows += Row.FolderRow(node, 0)
+                }
+            }
+            items(folderRows.size, key = { i ->
+                when (val row = folderRows[i]) {
+                    is Row.FolderRow -> "mf${row.node.path}"
+                    is Row.TrackRow -> "mt${row.track.id}"
+                    else -> "mx$i"
+                }
+            }) { i ->
+                when (val row = folderRows[i]) {
+                    is Row.FolderRow -> {
+                        val segs = lib.relativeSegments(row.node.path)
+                        FolderRowView(
+                            node = row.node,
+                            depth = row.depth,
+                            tag = row.tag,
+                            parentPath = if (segs.size > 1) segs.dropLast(1).joinToString(" / ") else null,
+                            inMusicBranch = segs.firstOrNull()?.let { StandardFolders.isStandard(it) } == true,
+                            expandedNow = expanded.contains(row.node.path),
+                            checkState = vm.folderCheckState(row.node),
+                            onToggleSel = { vm.toggleFolderSelection(row.node) },
+                            onToggleExpand = { vm.toggleFolder(row.node.path) },
+                            query = query,
+                        )
+                    }
+                    is Row.TrackRow -> TrackRowView(
+                        track = row.track,
+                        isCurrent = row.track.id == currentId,
+                        subText = "${row.track.artist.ifBlank { s.unknownArtist }} · ${row.track.album.ifBlank { s.noAlbum }}",
+                        query = "",
+                        depth = row.depth,
+                        tag = row.tag,
+                        onToggleSel = { vm.toggleTrackSelection(row.track.id) },
+                        onPlay = null,
+                        selected = selected.contains(row.track.id),
+                        isPlaying = isPlaying,
+                    )
+                    else -> {}
+                }
+            }
+        }
+        if (results.isNotEmpty()) {
+            item {
+                SectionLabel(
+                    s.songsGroup,
+                    Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
+                )
+            }
+            itemsIndexed(results, key = { _, t -> "s${t.id}" }) { index, track ->
                 TrackRowView(
                     track = track,
                     isCurrent = track.id == currentId,
                     subText = "${track.artist.ifBlank { s.unknownArtist }} · ${lib.pathOf(track)}",
                     query = query,
-                    onToggleSel = null,
-                    onPlay = null,
+                    onToggleSel = { vm.toggleTrackSelection(track.id) },
+                    playOnLongPress = true,
+                    onPlay = { vm.playFrom(results, index) },
+                    selected = selected.contains(track.id),
                     isPlaying = isPlaying,
                 )
             }
@@ -612,63 +796,99 @@ private fun TreeList(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp + navBottom),
     ) {
-        items(rows, key = {
-            when (it) {
-                is Row.Label -> "l${it.text}"
-                is Row.FolderRow -> "f${it.node.path}"
-                is Row.TrackRow -> "t${it.track.id}${it.keySuffix}"
-                is Row.PlaylistFolderRow -> "f$PLAYLISTS_KEY"
-                is Row.PlaylistRow -> "p${it.playlist.path}"
-            }
-        }) { row ->
-            when (row) {
-                is Row.Label -> SectionLabel(
-                    row.text,
-                    Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
+        treeRows(
+            rows = rows,
+            lib = lib,
+            expanded = expanded,
+            selected = selected,
+            vm = vm,
+            currentId = currentId,
+            isPlaying = isPlaying,
+            query = "",
+            s = s,
+        )
+    }
+}
+
+/**
+ * Отрисовка строк дерева (общая для дерева и результатов поиска): плейлисты,
+ * папки с путём родителей и гнездом, треки с галочками.
+ * [query] непустой только в поиске — подсветка совпадений в названиях.
+ */
+private fun LazyListScope.treeRows(
+    rows: List<Row>,
+    lib: Library,
+    expanded: Set<String>,
+    selected: Set<Long>,
+    vm: LibraryViewModel,
+    currentId: Long?,
+    isPlaying: Boolean,
+    query: String,
+    s: FsStrings,
+) {
+    items(rows, key = {
+        when (it) {
+            is Row.Label -> "l${it.text}"
+            is Row.FolderRow -> "f${it.node.path}"
+            is Row.TrackRow -> "t${it.track.id}${it.keySuffix}"
+            is Row.PlaylistFolderRow -> "f$PLAYLISTS_KEY"
+            is Row.PlaylistRow -> "p${it.playlist.path}"
+        }
+    }) { row ->
+        when (row) {
+            is Row.Label -> SectionLabel(
+                row.text,
+                Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
+            )
+            is Row.FolderRow -> {
+                val segs = lib.relativeSegments(row.node.path)
+                FolderRowView(
+                    node = row.node,
+                    depth = row.depth,
+                    tag = row.tag,
+                    parentPath = if (segs.size > 1) segs.dropLast(1).joinToString(" / ") else null,
+                    inMusicBranch = segs.firstOrNull()?.let { StandardFolders.isStandard(it) } == true,
+                    expandedNow = expanded.contains(row.node.path),
+                    checkState = vm.folderCheckState(row.node),
+                    onToggleSel = { vm.toggleFolderSelection(row.node) },
+                    onToggleExpand = { vm.toggleFolder(row.node.path) },
+                    query = query,
                 )
-                is Row.FolderRow -> {
-                    val segs = lib?.relativeSegments(row.node.path) ?: emptyList()
-                    FolderRowView(
-                        node = row.node,
-                        depth = row.depth,
-                        tag = row.tag,
-                        parentPath = if (segs.size > 1) segs.dropLast(1).joinToString(" / ") else null,
-                        inMusicBranch = segs.firstOrNull()?.let { StandardFolders.isStandard(it) } == true,
-                        expandedNow = expanded.contains(row.node.path),
-                        checkState = vm.folderCheckState(row.node),
-                        onToggleSel = { vm.toggleFolderSelection(row.node) },
-                        onToggleExpand = { vm.toggleFolder(row.node.path) },
-                    )
-                }
-                is Row.TrackRow -> TrackRowView(
+            }
+            is Row.TrackRow -> {
+                // Быстрое проигрывание: без выделения двойной тап по треку дерева
+                // играет его папку. Треки развёрнутых плейлистов исключены —
+                // у плейлиста запуск по удержанию на плитке.
+                val quickPlay = selected.isEmpty() && !row.fromPlaylist
+                TrackRowView(
                     track = row.track,
                     isCurrent = row.track.id == currentId,
                     subText = "${row.track.artist.ifBlank { s.unknownArtist }} · ${row.track.album.ifBlank { s.noAlbum }}",
-                    query = "",
+                    query = query,
                     depth = row.depth,
                     tag = row.tag,
                     onToggleSel = { vm.toggleTrackSelection(row.track.id) },
-                    // запуска из дерева нет — только галочки и «Слушать выбранное»
-                    onPlay = null,
+                    onPlay = if (quickPlay) ({ vm.playQuick(row.track) }) else null,
+                    playOnDoubleClick = quickPlay,
                     selected = selected.contains(row.track.id),
                     isPlaying = isPlaying,
                 )
-                is Row.PlaylistFolderRow -> PlaylistFolderRowView(
-                    playlistsCount = row.playlistsCount,
-                    tracksCount = row.tracksCount,
-                    expandedNow = expanded.contains(PLAYLISTS_KEY),
-                    onToggleExpand = { vm.toggleFolder(PLAYLISTS_KEY) },
-                )
-                is Row.PlaylistRow -> PlaylistRowView(
-                    playlist = row.playlist,
-                    depth = row.depth,
-                    expandedNow = expanded.contains(row.playlist.path),
-                    checkState = vm.playlistCheckState(row.playlist),
-                    onToggleSel = { vm.togglePlaylistSelection(row.playlist) },
-                    onToggleExpand = { vm.toggleFolder(row.playlist.path) },
-                    onPlay = { vm.playPlaylist(row.playlist) },
-                )
             }
+            is Row.PlaylistFolderRow -> PlaylistFolderRowView(
+                playlistsCount = row.playlistsCount,
+                tracksCount = row.tracksCount,
+                expandedNow = expanded.contains(PLAYLISTS_KEY),
+                onToggleExpand = { vm.toggleFolder(PLAYLISTS_KEY) },
+            )
+            is Row.PlaylistRow -> PlaylistRowView(
+                playlist = row.playlist,
+                depth = row.depth,
+                expandedNow = expanded.contains(row.playlist.path),
+                checkState = vm.playlistCheckState(row.playlist),
+                onToggleSel = { vm.togglePlaylistSelection(row.playlist) },
+                onToggleExpand = { vm.toggleFolder(row.playlist.path) },
+                onPlay = { vm.playPlaylist(row.playlist) },
+            )
         }
     }
 }
@@ -686,6 +906,7 @@ private fun FolderRowView(
     checkState: CheckState,
     onToggleSel: () -> Unit,
     onToggleExpand: () -> Unit,
+    query: String = "",
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
@@ -760,8 +981,12 @@ private fun FolderRowView(
                 )
             }
             Text(
-                node.name,
-                color = Color.White,
+                highlight(
+                    text = node.name,
+                    query = query,
+                    baseColor = Color.White,
+                    highlightColor = Color.White,
+                ),
                 fontSize = 15.sp,
                 lineHeight = if (parentPath != null) 18.sp else TextUnit.Unspecified,
                 fontWeight = FontWeight.W700,
@@ -828,7 +1053,7 @@ private fun PlaylistFolderRowView(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                if (expandedNow) FsIcons.FolderOpen else FsIcons.Folder,
+                Icons.Filled.QueueMusic,
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.padding(start = 2.dp).size(32.dp),
@@ -980,6 +1205,8 @@ fun TrackRowView(
     selected: Boolean = false,
     isPlaying: Boolean = false,
     playOnLongPress: Boolean = false,
+    /** Быстрое проигрывание: запуск только двойным тапом, тап и удержание ничего не делают. */
+    playOnDoubleClick: Boolean = false,
     onToggleSel: (() -> Unit)?,
     onPlay: (() -> Unit)? = null,
 ) {
@@ -1016,14 +1243,16 @@ fun TrackRowView(
                         Modifier.combinedClickable(
                             interactionSource = interaction,
                             indication = null,
-                            onClick = if (playOnLongPress) ({ /* тап не играет — удержание или двойной тап */ }) else onPlay,
+                            onClick = if (playOnLongPress || playOnDoubleClick) {
+                                ({ /* тап не играет — удержание или двойной тап */ })
+                            } else onPlay,
                             onLongClick = if (playOnLongPress) {
                                 {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onPlay()
                                 }
                             } else null,
-                            onDoubleClick = if (playOnLongPress) onPlay else null,
+                            onDoubleClick = if (playOnLongPress || playOnDoubleClick) onPlay else null,
                         )
                     }
                 )

@@ -30,6 +30,9 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     val expanded = MutableStateFlow<Set<String>>(emptySet())
     val selected = MutableStateFlow<Set<Long>>(emptySet())
 
+    /** Короткое имя папки режима быстрого проигрывания (пусто — режим неактивен). */
+    val quickFolder = MutableStateFlow("")
+
     val searchResults: StateFlow<List<Track>> = combine(query, _library) { q, lib ->
         val needle = q.trim().lowercase()
         if (needle.isEmpty()) {
@@ -48,6 +51,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
             // восстановление состояния прошлой сессии
             expanded.value = fsApp.settings.loadExpanded()
             selected.value = fsApp.settings.loadSelected()
+            quickFolder.value = fsApp.settings.loadQuickFolder()
             load()
         }
     }
@@ -109,6 +113,8 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         val currentId = connection.currentMediaId.value?.toLongOrNull()
         val queueEmpty = connection.queue.value.isEmpty()
         if (currentId != null && prev.contains(currentId) && !next.contains(currentId)) {
+            // очередь заменяется выбором — быстрый режим заканчивается
+            setQuickFolder("")
             connection.prepareQueue(tracksOf(next))
         } else if (next.isNotEmpty() &&
             connection.currentMediaId.value == null && queueEmpty
@@ -116,8 +122,16 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
             // плеер пуст (после «Очистить всё» или без сохранённого трека), а выбор
             // появился: наполнить плеер первым треком на паузе — иначе экран плеера
             // открыт, но все кнопки при пустой очереди молча игнорируют тапы
+            setQuickFolder("")
             connection.prepareQueue(tracksOf(next))
         }
+    }
+
+    /** Ярлык быстрого режима на панели библиотеки; пустое имя выключает режим. */
+    private fun setQuickFolder(name: String) {
+        if (quickFolder.value == name) return
+        quickFolder.value = name
+        viewModelScope.launch { fsApp.settings.saveQuickFolder(name) }
     }
 
     fun toggleFolderSelection(folder: FolderNode) {
@@ -152,11 +166,25 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     fun playSelected() {
         val list = selectedTracks()
         if (list.isEmpty()) return
+        setQuickFolder("")
         connection.playQueue(list, 0)
     }
 
     fun playFrom(list: List<Track>, index: Int) {
+        setQuickFolder("")
         connection.playQueue(list, index)
+    }
+
+    /** Быстрое проигрывание: двойной тап по треку дерева без выделения —
+     *  играет всю папку трека с этой песни (перемешивание и повтор применяются
+     *  как обычно; повтор выключен — стоп после папки). */
+    fun playQuick(track: Track) {
+        val lib = _library.value ?: return
+        val folderTracks = lib.allTracks.filter { !it.missing && it.folderPath == track.folderPath }
+        val start = folderTracks.indexOfFirst { it.id == track.id }
+        if (start < 0) return
+        connection.playQueue(folderTracks, start)
+        setQuickFolder(track.folderPath.substringAfterLast('/'))
     }
 
     /* ==================== плейлисты ==================== */
@@ -164,6 +192,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     /** Удержание на плитке плейлиста: играть весь плейлист с начала. */
     fun playPlaylist(playlist: Playlist) {
         if (playlist.tracks.isEmpty()) return
+        setQuickFolder("")
         connection.playQueue(playlist.tracks, 0)
     }
 

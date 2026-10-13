@@ -37,6 +37,7 @@ class SettingsStore(private val context: Context) {
         val PB_POS = longPreferencesKey("pb_position_ms")
         val PB_QUEUE = stringPreferencesKey("pb_queue")
         val PB_QUEUE_BASE = stringPreferencesKey("pb_queue_base")
+        val PB_QUICK = stringPreferencesKey("pb_quick")
         val PB_SPEED = floatPreferencesKey("pb_speed")
         val SHUFFLE = booleanPreferencesKey("shuffle")
         val REPEAT = intPreferencesKey("repeat_mode")
@@ -168,6 +169,17 @@ class SettingsStore(private val context: Context) {
             it.remove(Keys.PB_QUEUE_BASE)
         }
     }
+
+    /** Имя папки режима быстрого проигрывания (пусто — режим неактивен).
+     *  Живёт вместе с сохранённой очередью: после перезапуска ярлык восстанавливается. */
+    suspend fun saveQuickFolder(name: String) {
+        context.dataStore.edit {
+            if (name.isEmpty()) it.remove(Keys.PB_QUICK) else it[Keys.PB_QUICK] = name
+        }
+    }
+
+    suspend fun loadQuickFolder(): String =
+        context.dataStore.data.first()[Keys.PB_QUICK] ?: ""
 
     /** Скорость воспроизведения 0.5..2.0 (для музыки и аудиокниг). */
     val playbackSpeed: Flow<Float> = context.dataStore.data.map {
