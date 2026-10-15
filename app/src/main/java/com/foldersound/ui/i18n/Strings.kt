@@ -141,11 +141,6 @@ data class FsStrings(
     val favFoldersHint: String,
     val hiddenFoldersHint: String,
     val listEmpty: String,
-    val vinylStyleSection: String,
-    val vinylStyleVinyl: String,
-    val vinylStyleReel: String,
-    val vinylStyleCassette: String,
-    val vinylStyleCd: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -293,11 +288,6 @@ private val RuStrings = FsStrings(
     favFoldersHint = "Добавить папку: удержание 2 с на плитке папки в дереве → «Добавить в избранное»",
     hiddenFoldersHint = "Скрыть папку: удержание 2 с на плитке папки в дереве → «Спрятать»",
     listEmpty = "Список пуст",
-    vinylStyleSection = "Вид пластинки",
-    vinylStyleVinyl = "Винил",
-    vinylStyleReel = "Бобина",
-    vinylStyleCassette = "Кассета",
-    vinylStyleCd = "Компакт-диск",
 )
 
 private val EnStrings = FsStrings(
@@ -420,11 +410,6 @@ private val EnStrings = FsStrings(
     favFoldersHint = "To add a folder: hold a folder tile in the tree for 2 s → \"Add to favorites\"",
     hiddenFoldersHint = "To hide a folder: hold a folder tile in the tree for 2 s → \"Hide\"",
     listEmpty = "The list is empty",
-    vinylStyleSection = "Record style",
-    vinylStyleVinyl = "Vinyl",
-    vinylStyleReel = "Reel",
-    vinylStyleCassette = "Cassette",
-    vinylStyleCd = "Compact disc",
 )
 
 fun stringsFor(langCode: String): FsStrings = if (langCode == "en") EnStrings else RuStrings

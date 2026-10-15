@@ -1,7 +1,7 @@
 package com.foldersound.ui.player
 
 import android.net.Uri
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -51,17 +51,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.foldersound.R
 import com.foldersound.ui.icons.FsIcons
 import com.foldersound.ui.i18n.LocalStrings
 import com.foldersound.data.Track
@@ -84,16 +82,13 @@ import com.foldersound.ui.common.holdToggle
 import com.foldersound.ui.common.horizontalSwipes
 import com.foldersound.ui.theme.Fs
 import kotlinx.coroutines.delay
-import kotlin.math.cos
 import kotlin.math.min
-import kotlin.math.sin
 
 @Composable
 fun PlayerScreen(
     connection: PlayerConnection,
     track: Track?,
     pathText: String,
-    vinylStyle: String = "vinyl",
     onBack: () -> Unit,
     onOpenEq: () -> Unit,
     onOpenPlaybackSettings: () -> Unit,
@@ -201,12 +196,11 @@ fun PlayerScreen(
                 .fillMaxWidth()
                 .padding(start = 26.dp, end = 26.dp, top = 8.dp)
         ) {
-            // естественный размер композиции «обложка + пластинка»
-            val scale = min(min(maxWidth / 308.dp, maxHeight / 252.dp), 1f)
+            // естественный размер композиции «конверт + пластинка»
+            val scale = min(min(maxWidth / 340.dp, maxHeight / 232.dp), 1f)
             ArtWithVinyl(
                 artUri = track?.albumArtUri,
                 isPlaying = isPlaying,
-                vinylStyle = vinylStyle,
                 modifier = Modifier
                     .align(Alignment.Center)
                     .graphicsLayer { scaleX = scale; scaleY = scale },
@@ -350,18 +344,17 @@ fun PlayerScreen(
     }
 }
 
-/* ==================== обложка + пластинка ==================== */
+/* ==================== конверт + пластинка ==================== */
 
 /**
- * Обложка с «носителем» позади: варианты — виниловая пластинка, бобина,
- * кассета, компакт-диск (выбор в Настройках). Крутится только диск/катушки
- * и только во время воспроизведения.
+ * Обложка-конверт, из которого справа выглядывает фотопластинка: видно чуть
+ * больше половины диска, центр выступает за край совсем немного. Крутится
+ * пластинка только во время воспроизведения — 33⅓ об/мин, как у винила.
  */
 @Composable
 private fun ArtWithVinyl(
     artUri: Uri?,
     isPlaying: Boolean,
-    vinylStyle: String,
     modifier: Modifier = Modifier,
 ) {
     val fs = Fs.c
@@ -372,25 +365,28 @@ private fun ArtWithVinyl(
             while (true) {
                 withFrameNanos { now ->
                     if (last != 0L) {
-                        angle = (angle + (now - last) / 8_500_000_000f * 360f) % 360f
+                        angle = (angle + (now - last) / 1_800_000_000f * 360f) % 360f
                     }
                     last = now
                 }
             }
         }
     }
-    Box(modifier.size(308.dp, 252.dp)) {
-        when (vinylStyle) {
-            "reel" -> ReelDisc(angle, Modifier.align(Alignment.CenterEnd))
-            "cassette" -> CassetteTape(angle, Modifier.align(Alignment.CenterEnd))
-            "cd" -> CompactDisc(angle, Modifier.align(Alignment.CenterEnd))
-            else -> VinylDisc(angle, Modifier.align(Alignment.CenterEnd))
-        }
-        // обложка
+    Box(modifier.size(SleeveSize + RecordPoke + RecordSize / 2, SleeveSize)) {
+        Image(
+            painter = painterResource(R.drawable.vinyl_record),
+            contentDescription = null,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .offset(x = SleeveSize + RecordPoke - RecordSize / 2)
+                .size(RecordSize)
+                .graphicsLayer { rotationZ = angle },
+        )
+        // обложка-конверт
         Box(
             Modifier
                 .align(Alignment.CenterStart)
-                .size(252.dp)
+                .size(SleeveSize)
                 .shadow(26.dp, RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
                 .background(Brush.linearGradient(listOf(fs.coverGradStart, fs.coverGradEnd)))
@@ -415,226 +411,14 @@ private fun ArtWithVinyl(
     }
 }
 
-/** Диаметр круглого носителя за обложкой (винил/бобина/CD). */
-private val DiscSize = 206.dp
+/** Сторона обложки-конверта. */
+private val SleeveSize = 232.dp
 
-/** Круглый носитель, выглядывающий из-за обложки справа. */
-@Composable
-private fun DiscSlot(
-    angle: Float,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Box(
-        modifier
-            .offset(x = 102.dp)
-            .size(DiscSize)
-            .graphicsLayer { rotationZ = angle }
-    ) {
-        content()
-    }
-}
+/** Диаметр фотопластинки — чуть меньше конверта. */
+private val RecordSize = 208.dp
 
-/** Винил: чёрный диск с бороздками и цветной этикеткой. */
-@Composable
-private fun VinylDisc(angle: Float, modifier: Modifier = Modifier) {
-    val fs = Fs.c
-    DiscSlot(angle, modifier) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .shadow(10.dp, CircleShape)
-                .clip(CircleShape)
-                .background(vinylGroovesBrush())
-        ) {
-            // этикетка
-            Box(
-                Modifier
-                    .align(Alignment.Center)
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(fs.secondary)
-            )
-            // отверстие
-            Box(
-                Modifier
-                    .align(Alignment.Center)
-                    .size(9.dp)
-                    .clip(CircleShape)
-                    .background(fs.bg)
-            )
-        }
-    }
-}
-
-/** Бобина: катушка с окошками, сквозь которые видна лента. */
-@Composable
-private fun ReelDisc(angle: Float, modifier: Modifier = Modifier) {
-    val fs = Fs.c
-    DiscSlot(angle, modifier) {
-        Canvas(Modifier.fillMaxSize().shadow(10.dp, CircleShape, clip = false)) {
-            val r = size.minDimension / 2f
-            val c = Offset(r, r)
-            // корпус катушки
-            drawCircle(Color(0xFF1F2536), radius = r)
-            drawCircle(Color(0xFF2C3450), radius = r * 0.94f, style = Stroke(width = r * 0.05f))
-            // лента по краю
-            drawCircle(Color(0xFF6B5335), radius = r * 0.86f)
-            drawCircle(Color(0xFF1F2536), radius = r * 0.80f)
-            // окошки (три), сквозь них видна лента
-            val window = r * 0.34f
-            for (i in 0 until 3) {
-                val a = Math.toRadians((120 * i).toDouble())
-                val cx = c.x + window * cos(a).toFloat()
-                val cy = c.y + window * sin(a).toFloat()
-                drawCircle(Color(0xFF6B5335), radius = r * 0.17f, center = Offset(cx, cy))
-            }
-            // втулка с зубцами
-            drawCircle(Color(0xFF39415E), radius = r * 0.30f)
-            for (i in 0 until 6) {
-                rotate(degrees = 60f * i + angle % 60f) {
-                    drawLine(
-                        Color(0xFF1F2536),
-                        start = Offset(c.x, c.y - r * 0.28f),
-                        end = Offset(c.x, c.y - r * 0.12f),
-                        strokeWidth = r * 0.09f,
-                    )
-                }
-            }
-            drawCircle(Color(0xFF141827), radius = r * 0.10f)
-        }
-    }
-}
-
-/** Кассета: корпус статичен, крутятся катушки в окне. */
-@Composable
-private fun CassetteTape(angle: Float, modifier: Modifier = Modifier) {
-    val fs = Fs.c
-    Box(
-        modifier
-            .offset(x = 40.dp)
-            .size(160.dp, 210.dp)
-            .shadow(10.dp, RoundedCornerShape(14.dp))
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF262D42))
-    ) {
-        // окно с катушками
-        Box(
-            Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp)
-                .size(120.dp, 96.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF171B2A))
-        ) {
-            ReelHub(angle, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
-            ReelHub(-angle, Modifier.align(Alignment.CenterEnd).padding(end = 8.dp))
-        }
-        // этикетка снизу
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 10.dp)
-                .size(130.dp, 44.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(fs.secondary.copy(alpha = 0.85f))
-        )
-    }
-}
-
-@Composable
-private fun ReelHub(angle: Float, modifier: Modifier = Modifier) {
-    val fs = Fs.c
-    Box(
-        modifier
-            .size(44.dp)
-            .graphicsLayer { rotationZ = angle }
-            .clip(CircleShape)
-            .background(fs.secondary)
-    ) {
-        // зубцы втулки
-        for (i in 0 until 6) {
-            Box(
-                Modifier
-                    .align(Alignment.Center)
-                    .offset(y = (-14).dp)
-                    .size(5.dp, 12.dp)
-                    .graphicsLayer {
-                        rotationZ = 60f * i
-                        transformOrigin = TransformOrigin(0.5f, 1.83f)
-                    }
-                    .background(Color(0xFF171B2A))
-            )
-        }
-        Box(
-            Modifier
-                .align(Alignment.Center)
-                .size(12.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF171B2A))
-        )
-    }
-}
-
-/** Компакт-диск: радужный отблеск и центральное отверстие. */
-@Composable
-private fun CompactDisc(angle: Float, modifier: Modifier = Modifier) {
-    val fs = Fs.c
-    DiscSlot(angle, modifier) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .shadow(10.dp, CircleShape)
-                .clip(CircleShape)
-                .background(cdBrush())
-        ) {
-            // зеркальная зона вокруг отверстия
-            Box(
-                Modifier
-                    .align(Alignment.Center)
-                    .size(62.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFE8E4DA))
-            )
-            Box(
-                Modifier
-                    .align(Alignment.Center)
-                    .size(26.dp)
-                    .clip(CircleShape)
-                    .background(fs.bg)
-            )
-        }
-    }
-}
-
-/** Отблеск CD: секторная радуга поверх серебристой подложки. */
-private fun cdBrush(): Brush = Brush.sweepGradient(
-    0f to Color(0xFFC9CBD4),
-    0.12f to Color(0xFFE9D9EE),
-    0.2f to Color(0xFFCDDDE9),
-    0.32f to Color(0xFFD9E9CD),
-    0.45f to Color(0xFFE9E3C9),
-    0.58f to Color(0xFFE9CDD5),
-    0.7f to Color(0xFFCDD4E9),
-    0.85f to Color(0xFFD6E9E4),
-    1f to Color(0xFFC9CBD4),
-)
-
-/** Бороздки пластинки — чередование двух тёмных оттенков + зона этикетки. */
-private fun vinylGroovesBrush(): Brush {
-    val stops = ArrayList<Pair<Float, Color>>()
-    stops.add(0f to Color(0xFF9D7B56))
-    stops.add(0.14f to Color(0xFF9D7B56))
-    var stop = 0.15f
-    var i = 0
-    while (stop < 0.99f) {
-        stops.add(stop to if (i % 2 == 0) Color(0xFF1F2536) else Color(0xFF141827))
-        stop += 0.042f
-        i++
-    }
-    stops.add(1f to Color(0xFF1F2536))
-    return Brush.radialGradient(*stops.toTypedArray())
-}
+/** Насколько центр пластинки выступает за правый край конверта. */
+private val RecordPoke = 4.dp
 
 /* ==================== чип ==================== */
 

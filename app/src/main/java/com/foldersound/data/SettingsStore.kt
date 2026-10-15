@@ -23,7 +23,6 @@ class SettingsStore(private val context: Context) {
     private object Keys {
         val THEME = stringPreferencesKey("theme")
         val SKIN = stringPreferencesKey("skin")
-        val VINYL = stringPreferencesKey("vinyl_style")
         val LANG = stringPreferencesKey("lang")
         val EQ_ENABLED = booleanPreferencesKey("eq_enabled")
         val EQ_PRESET = stringPreferencesKey("eq_preset")
@@ -86,15 +85,6 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setSkinId(id: String) {
         context.dataStore.edit { it[Keys.SKIN] = id }
-    }
-
-    /** Вид пластинки за обложкой в плеере: vinyl / reel / cassette / cd. */
-    val vinylStyle: Flow<String> = context.dataStore.data.map { p ->
-        p[Keys.VINYL] ?: "vinyl"
-    }
-
-    suspend fun setVinylStyle(style: String) {
-        context.dataStore.edit { it[Keys.VINYL] = style }
     }
 
     val appLang: Flow<AppLang> = context.dataStore.data.map { p ->
