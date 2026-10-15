@@ -148,6 +148,7 @@ data class FsStrings(
     val favFoldersHint: String,
     val hiddenFoldersHint: String,
     val listEmpty: String,
+    val vinylCredit: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -296,6 +297,7 @@ private val RuStrings = FsStrings(
     favFoldersHint = "Добавить папку: удержание 2 с на плитке папки в дереве → «Добавить в избранное»",
     hiddenFoldersHint = "Скрыть папку: удержание 2 с на плитке папки в дереве → «Спрятать»",
     listEmpty = "Список пуст",
+    vinylCredit = "Изображение пластинки: pngtree, автор takestudio",
 )
 
 private val EnStrings = FsStrings(
@@ -419,6 +421,7 @@ private val EnStrings = FsStrings(
     favFoldersHint = "To add a folder: hold a folder tile in the tree for 2 s → \"Add to favorites\"",
     hiddenFoldersHint = "To hide a folder: hold a folder tile in the tree for 2 s → \"Hide\"",
     listEmpty = "The list is empty",
+    vinylCredit = "Vinyl artwork: pngtree, by takestudio",
 )
 
 private val DeStrings = FsStrings(
@@ -542,6 +545,7 @@ private val DeStrings = FsStrings(
     favFoldersHint = "Ordner hinzufügen: Ordnerkachel im Baum 2 s gedrückt halten → „Zu Favoriten hinzufügen“",
     hiddenFoldersHint = "Ordner ausblenden: Ordnerkachel im Baum 2 s gedrückt halten → „Ausblenden“",
     listEmpty = "Die Liste ist leer",
+    vinylCredit = "Schallplattenbild: pngtree, von takestudio",
 )
 
 fun stringsFor(langCode: String): FsStrings = when (langCode) {

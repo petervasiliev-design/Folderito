@@ -317,6 +317,25 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // атрибуция изображения пластинки — условие бесплатной лицензии pngtree
+            Text(
+                s.vinylCredit,
+                Modifier
+                    .padding(top = 18.dp)
+                    .fillMaxWidth()
+                    .clickable {
+                        context.startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://ru.pngtree.com/freepng/vintage-vinyl-record-cutout_21097493.html"),
+                            )
+                        )
+                    },
+                color = fs.on3,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.W600,
+            )
         }
     }
 }

@@ -104,6 +104,12 @@ app/src/main/java/com/foldersound/
     └── settings/             — цветовые схемы, тема, язык, перемотка, списки папок
 ```
 
+## Благодарности
+
+Иллюстрация виниловой пластинки в плеере —
+[takestudio / Pngtree](https://ru.pngtree.com/freepng/vintage-vinyl-record-cutout_21097493.html)
+(бесплатная лицензия с указанием авторства).
+
 ## Лицензия
 
 [Apache License 2.0](LICENSE). Код можно свободно использовать, изменять и
