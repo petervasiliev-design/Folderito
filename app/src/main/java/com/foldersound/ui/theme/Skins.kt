@@ -148,6 +148,18 @@ object Skins {
             secondary = 0xFF41516A,
             accent = 0xFF1C2739,
         ),
+
+        // «Полночь»: та же палитра, что у «Стали», но тёмная — фон и акцент поменяны местами.
+        skinFromShort(
+            id = "midnight",
+            nameRu = "Полночь",
+            nameEn = "Midnight",
+            text = 0xFFFFFFFF,
+            background = 0xFF1C2739,
+            primary = 0xFF41516A,
+            secondary = 0xFF2D3E52,
+            accent = 0xFF5E6E88,
+        ),
     )
 
     fun byId(id: String?): Skin? = all.firstOrNull { it.id == id }
