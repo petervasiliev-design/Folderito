@@ -2,6 +2,7 @@ package com.foldersound.ui.library
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -195,16 +197,6 @@ fun AppDrawer(
             onClick = onOpenSettings,
         )
 
-        // о программе: версия, автор, лицензия, ссылки
-        ActionRow(
-            icon = Icons.Filled.Info,
-            label = s.aboutSection,
-            onClick = { aboutOpen = true },
-        )
-        if (aboutOpen) {
-            AboutDialog(onDismiss = { aboutOpen = false })
-        }
-
         // выбор языка интерфейса — перед темой
         SectionLabel(s.langSection, Modifier.padding(start = 8.dp, top = 18.dp, bottom = 4.dp))
         OptionRow(
@@ -244,6 +236,17 @@ fun AppDrawer(
             label = s.themeDark,
             selected = themeMode == ThemeMode.DARK,
         ) { onSetTheme(ThemeMode.DARK) }
+
+        // «О программе» прижата к нижнему краю шторки (распорка забирает свободное место)
+        Spacer(Modifier.weight(1f))
+        ActionRow(
+            icon = Icons.Filled.Info,
+            label = s.aboutSection,
+            onClick = { aboutOpen = true },
+        )
+        if (aboutOpen) {
+            AboutDialog(onDismiss = { aboutOpen = false })
+        }
     }
 }
 
@@ -369,11 +372,20 @@ private fun AboutDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    painter = painterResource(R.mipmap.ic_launcher),
-                    contentDescription = null,
-                    modifier = Modifier.size(44.dp),
-                )
+                // адаптивную иконку painterResource не грузит — собираем из цвета и PNG-глифа
+                Box(
+                    Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF0E3DB)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
                 Column(Modifier.padding(start = 12.dp)) {
                     Text("Folderito", color = fs.on, fontSize = 18.sp, fontWeight = FontWeight.W800)
                     Text(
