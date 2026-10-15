@@ -30,9 +30,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -262,7 +264,7 @@ fun SettingsScreen(
                     )
                 } else {
                     favoriteFolders.forEach { (path, label) ->
-                        FolderListRow(label) { onRemoveFavorite(path) }
+                        FolderListRow(label, Icons.Filled.Star, fs.accent) { onRemoveFavorite(path) }
                     }
                 }
             }
@@ -291,7 +293,7 @@ fun SettingsScreen(
                     )
                 } else {
                     hiddenFolders.forEach { (path, label) ->
-                        FolderListRow(label) { onRemoveHidden(path) }
+                        FolderListRow(label, Icons.Filled.VisibilityOff, fs.on3) { onRemoveHidden(path) }
                     }
                 }
             }
@@ -351,9 +353,14 @@ fun SettingsScreen(
     }
 }
 
-/** Строка списка избранных/скрытых папок: путь и кнопка удаления. */
+/** Строка списка избранных/скрытых папок: иконка, путь и кнопка удаления. */
 @Composable
-private fun FolderListRow(label: String, onRemove: () -> Unit) {
+private fun FolderListRow(
+    label: String,
+    icon: ImageVector,
+    iconTint: Color,
+    onRemove: () -> Unit,
+) {
     val fs = Fs.c
     val s = LocalStrings.current
     Row(
@@ -366,9 +373,9 @@ private fun FolderListRow(label: String, onRemove: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            Icons.Filled.Folder,
+            icon,
             contentDescription = null,
-            tint = fs.on3,
+            tint = iconTint,
             modifier = Modifier.size(20.dp),
         )
         Text(
