@@ -149,6 +149,12 @@ data class FsStrings(
     val hiddenFoldersHint: String,
     val listEmpty: String,
     val vinylCredit: String,
+    val aboutSection: String,
+    val aboutAuthor: String,
+    val aboutLicense: String,
+    val aboutSource: String,
+    val aboutPrivacy: String,
+    val aboutClose: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -298,6 +304,12 @@ private val RuStrings = FsStrings(
     hiddenFoldersHint = "Скрыть папку: удержание 2 с на плитке папки в дереве → «Спрятать»",
     listEmpty = "Список пуст",
     vinylCredit = "Изображение пластинки: pngtree, автор takestudio",
+    aboutSection = "О программе",
+    aboutAuthor = "© 2026 Пётр Васильев (Peter Vasiliev), Беларусь",
+    aboutLicense = "Лицензия: Apache License 2.0",
+    aboutSource = "Исходный код на GitHub",
+    aboutPrivacy = "Политика конфиденциальности",
+    aboutClose = "Закрыть",
 )
 
 private val EnStrings = FsStrings(
@@ -422,6 +434,12 @@ private val EnStrings = FsStrings(
     hiddenFoldersHint = "To hide a folder: hold a folder tile in the tree for 2 s → \"Hide\"",
     listEmpty = "The list is empty",
     vinylCredit = "Vinyl artwork: pngtree, by takestudio",
+    aboutSection = "About",
+    aboutAuthor = "© 2026 Peter Vasiliev, Belarus",
+    aboutLicense = "License: Apache License 2.0",
+    aboutSource = "Source code on GitHub",
+    aboutPrivacy = "Privacy policy",
+    aboutClose = "Close",
 )
 
 private val DeStrings = FsStrings(
@@ -546,6 +564,12 @@ private val DeStrings = FsStrings(
     hiddenFoldersHint = "Ordner ausblenden: Ordnerkachel im Baum 2 s gedrückt halten → „Ausblenden“",
     listEmpty = "Die Liste ist leer",
     vinylCredit = "Schallplattenbild: pngtree, von takestudio",
+    aboutSection = "Über",
+    aboutAuthor = "© 2026 Peter Vasiliev, Belarus",
+    aboutLicense = "Lizenz: Apache License 2.0",
+    aboutSource = "Quellcode auf GitHub",
+    aboutPrivacy = "Datenschutzerklärung",
+    aboutClose = "Schließen",
 )
 
 fun stringsFor(langCode: String): FsStrings = when (langCode) {
