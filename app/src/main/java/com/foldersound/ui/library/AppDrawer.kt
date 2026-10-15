@@ -1,5 +1,7 @@
 package com.foldersound.ui.library
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -23,17 +25,21 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,12 +47,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.foldersound.playback.SleepTimer
+import com.foldersound.BuildConfig
+import com.foldersound.R
 import com.foldersound.ui.common.SectionLabel
 import com.foldersound.ui.common.formatMs
 import com.foldersound.ui.common.holdToggle
@@ -72,6 +82,7 @@ fun AppDrawer(
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
+    var aboutOpen by remember { mutableStateOf(false) }
     Column(
         modifier
             .fillMaxHeight()
@@ -183,6 +194,16 @@ fun AppDrawer(
             label = s.settings,
             onClick = onOpenSettings,
         )
+
+        // о программе: версия, автор, лицензия, ссылки
+        ActionRow(
+            icon = Icons.Filled.Info,
+            label = s.aboutSection,
+            onClick = { aboutOpen = true },
+        )
+        if (aboutOpen) {
+            AboutDialog(onDismiss = { aboutOpen = false })
+        }
 
         // выбор языка интерфейса — перед темой
         SectionLabel(s.langSection, Modifier.padding(start = 8.dp, top = 18.dp, bottom = 4.dp))
@@ -333,4 +354,80 @@ private fun OptionRow(
             )
         }
     }
+}
+
+/** Диалог «О программе»: версия, автор, лицензия, ссылки на проект и атрибуции. */
+@Composable
+private fun AboutDialog(onDismiss: () -> Unit) {
+    val fs = Fs.c
+    val s = LocalStrings.current
+    val context = LocalContext.current
+    fun open(url: String) {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painter = painterResource(R.mipmap.ic_launcher),
+                    contentDescription = null,
+                    modifier = Modifier.size(44.dp),
+                )
+                Column(Modifier.padding(start = 12.dp)) {
+                    Text("Folderito", color = fs.on, fontSize = 18.sp, fontWeight = FontWeight.W800)
+                    Text(
+                        "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                        color = fs.on3,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.W600,
+                    )
+                }
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    s.aboutAuthor,
+                    Modifier.padding(bottom = 6.dp),
+                    color = fs.on2,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.W600,
+                )
+                AboutLink(s.aboutLicense) {
+                    open("https://github.com/petervasiliev-design/Folderito/blob/main/LICENSE")
+                }
+                AboutLink(s.aboutSource) {
+                    open("https://github.com/petervasiliev-design/Folderito")
+                }
+                AboutLink(s.aboutPrivacy) {
+                    open("https://github.com/petervasiliev-design/Folderito/blob/main/PRIVACY.md")
+                }
+                AboutLink(s.vinylCredit) {
+                    open("https://ru.pngtree.com/freepng/vintage-vinyl-record-cutout_21097493.html")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(s.aboutClose, color = fs.accent, fontWeight = FontWeight.W800)
+            }
+        },
+        containerColor = fs.surf,
+    )
+}
+
+/** Ссылка в диалоге «О программе». */
+@Composable
+private fun AboutLink(label: String, onClick: () -> Unit) {
+    val fs = Fs.c
+    Text(
+        label,
+        Modifier
+            .padding(top = 8.dp)
+            .clickable(onClick = onClick),
+        color = fs.accent,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.W700,
+    )
 }
