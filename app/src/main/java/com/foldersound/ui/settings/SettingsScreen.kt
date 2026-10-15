@@ -119,6 +119,7 @@ fun SettingsScreen(
             ) {
                 SkinRow(
                     label = s.skinClassic,
+                    note = s.themeLightDark,
                     swatch = null,
                     selected = skinId == Skins.CLASSIC_ID,
                     onClick = { onSetSkinId(Skins.CLASSIC_ID) },
@@ -127,6 +128,7 @@ fun SettingsScreen(
                 for (skin in Skins.all) {
                     SkinRow(
                         label = if (langRu) skin.nameRu else skin.nameEn,
+                        note = if (skin.darkColors != null) s.themeLightDark else s.themeLightOnly,
                         swatch = skin.colors,
                         selected = skinId == skin.id,
                         onClick = { onSetSkinId(skin.id) },
@@ -368,6 +370,7 @@ private fun FolderListRow(label: String, onRemove: () -> Unit) {
 @Composable
 private fun SkinRow(
     label: String,
+    note: String,
     swatch: FsColors?,
     selected: Boolean,
     onClick: () -> Unit,
@@ -377,7 +380,7 @@ private fun SkinRow(
         Modifier
             .padding(horizontal = 8.dp, vertical = 2.dp)
             .fillMaxWidth()
-            .height(46.dp)
+            .height(56.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(if (selected) fs.surf2 else Color.Transparent)
             .clickable(
@@ -398,14 +401,21 @@ private fun SkinRow(
                 modifier = Modifier.size(22.dp),
             )
         }
-        Text(
-            label,
-            Modifier.padding(start = 12.dp),
-            color = if (selected) fs.on else fs.on2,
-            fontSize = 15.sp,
-            fontWeight = if (selected) FontWeight.W700 else FontWeight.W600,
-        )
-        Spacer(Modifier.weight(1f))
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(
+                label,
+                color = if (selected) fs.on else fs.on2,
+                fontSize = 15.sp,
+                fontWeight = if (selected) FontWeight.W700 else FontWeight.W600,
+            )
+            Text(
+                note,
+                Modifier.padding(top = 1.dp),
+                color = fs.on3,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.W600,
+            )
+        }
         if (selected) {
             Icon(
                 Icons.Filled.Check,
