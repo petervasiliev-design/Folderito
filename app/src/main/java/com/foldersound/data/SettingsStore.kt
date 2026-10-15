@@ -80,7 +80,9 @@ class SettingsStore(private val context: Context) {
 
     /** Выбранный скин (цветовая схема); "classic" — стандартная схема приложения. */
     val skinId: Flow<String> = context.dataStore.data.map { p ->
-        p[Keys.SKIN] ?: com.foldersound.ui.theme.Skins.CLASSIC_ID
+        val stored = p[Keys.SKIN] ?: com.foldersound.ui.theme.Skins.CLASSIC_ID
+        // «Полночь» стала тёмной парой «Стали» — старый выбор переносится
+        if (stored == "midnight") "steel" else stored
     }
 
     suspend fun setSkinId(id: String) {

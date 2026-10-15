@@ -15,7 +15,10 @@ data class Skin(
     val id: String,
     val nameRu: String,
     val nameEn: String,
+    /** Основная (светлая) таблица. */
     val colors: FsColors,
+    /** Тёмная пара: если задана, переключатель «Тема» работает и для скина. */
+    val darkColors: FsColors? = null,
 )
 
 /** Затемнение/осветление для вывода градиентов. */
@@ -78,6 +81,28 @@ fun skinFromShort(
 object Skins {
     const val CLASSIC_ID = "classic"
 
+    private val steel = skinFromShort(
+        id = "steel",
+        nameRu = "Сталь",
+        nameEn = "Steel",
+        text = 0xFFFFFFFF,
+        background = 0xFF5E6E88,
+        primary = 0xFF2D3E52,
+        secondary = 0xFF41516A,
+        accent = 0xFF1C2739,
+    )
+
+    private val midnight = skinFromShort(
+        id = "steel-dark",
+        nameRu = "Полночь",
+        nameEn = "Midnight",
+        text = 0xFFFFFFFF,
+        background = 0xFF1C2739,
+        primary = 0xFF41516A,
+        secondary = 0xFF2D3E52,
+        accent = 0xFF5E6E88,
+    )
+
     val all: List<Skin> = listOf(
         // «Янтарь»: белый фон, янтарная primary, тёмно-синий акцент (формат пользователя;
         // раньше называлась «Своя»).
@@ -137,29 +162,8 @@ object Skins {
             )
         },
 
-        // «Сталь»: серо-синий фон, тёмно-синие primary/акцент, белый текст (формат пользователя).
-        skinFromShort(
-            id = "steel",
-            nameRu = "Сталь",
-            nameEn = "Steel",
-            text = 0xFFFFFFFF,
-            background = 0xFF5E6E88,
-            primary = 0xFF2D3E52,
-            secondary = 0xFF41516A,
-            accent = 0xFF1C2739,
-        ),
-
-        // «Полночь»: та же палитра, что у «Стали», но тёмная — фон и акцент поменяны местами.
-        skinFromShort(
-            id = "midnight",
-            nameRu = "Полночь",
-            nameEn = "Midnight",
-            text = 0xFFFFFFFF,
-            background = 0xFF1C2739,
-            primary = 0xFF41516A,
-            secondary = 0xFF2D3E52,
-            accent = 0xFF5E6E88,
-        ),
+        // «Сталь» + её тёмная пара «Полночь»: та же палитра, фон и акцент поменяны местами.
+        steel.copy(darkColors = midnight.colors),
     )
 
     fun byId(id: String?): Skin? = all.firstOrNull { it.id == id }

@@ -21,14 +21,23 @@ fun FsTheme(
     content: @Composable () -> Unit,
 ) {
     val skin = Skins.byId(skinId)
-    // выбранный скин заменяет схему целиком; его «светлость» определяет фон
-    val dark = skin?.let { it.colors.bg.luminance() < 0.5f }
-        ?: when (mode) {
+    // «Стандартная» и скины с тёмной парой подчиняются переключателю Темы;
+    // одиночный скин заменяет схему целиком, его «светлость» определяет фон
+    val themeAware = skin == null || skin.darkColors != null
+    val dark = if (themeAware) {
+        when (mode) {
             ThemeMode.SYSTEM -> isSystemInDarkTheme()
             ThemeMode.LIGHT -> false
             ThemeMode.DARK -> true
         }
-    val fs = skin?.colors ?: if (dark) DarkFsColors else LightFsColors
+    } else {
+        requireNotNull(skin).colors.bg.luminance() < 0.5f
+    }
+    val fs = when {
+        skin == null -> if (dark) DarkFsColors else LightFsColors
+        skin.darkColors != null -> if (dark) skin.darkColors else skin.colors
+        else -> skin.colors
+    }
     val scheme = if (dark) {
         darkColorScheme(
             primary = fs.primary,

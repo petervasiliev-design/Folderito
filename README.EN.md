@@ -43,9 +43,9 @@ Written in Kotlin + Jetpack Compose.
 - **Tooltips** — holding a header button opens a window with a description.
 
 ### Looks and data
-- **Color schemes** — Default, Amber, Mist, Olive, Steel, Midnight: five
-  base colors unfold into a full design-token table; plus dark/light theme
-  and following the system setting.
+- **Color schemes** — Default, Amber, Mist, Olive, Steel (with its own dark
+  pair): five base colors unfold into a full design-token table; plus
+  dark/light theme and following the system setting.
 - **Language** — Russian / English / German (or system).
 - Background playback with a media notification (Media3 / ExoPlayer);
   resume after restart and from a media button (Tasker/MacroDroid,

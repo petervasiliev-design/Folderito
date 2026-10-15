@@ -107,6 +107,7 @@ fun AppNav(
                 vm = vm,
                 themeMode = themeMode,
                 onSetTheme = onSetTheme,
+                skinId = skinId,
                 langMode = langMode,
                 onSetLang = onSetLang,
                 onOpenPlayer = { push(Screen.Player) },

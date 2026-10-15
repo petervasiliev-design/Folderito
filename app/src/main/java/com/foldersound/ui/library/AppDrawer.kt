@@ -65,6 +65,7 @@ import com.foldersound.ui.common.holdToggle
 import com.foldersound.ui.i18n.AppLang
 import com.foldersound.ui.i18n.LocalStrings
 import com.foldersound.ui.theme.Fs
+import com.foldersound.ui.theme.Skins
 import com.foldersound.ui.theme.ThemeMode
 import kotlinx.coroutines.delay
 
@@ -75,6 +76,7 @@ import kotlinx.coroutines.delay
 fun AppDrawer(
     themeMode: ThemeMode,
     onSetTheme: (ThemeMode) -> Unit,
+    skinId: String,
     langMode: AppLang,
     onSetLang: (AppLang) -> Unit,
     onOpenEq: () -> Unit,
@@ -220,22 +222,51 @@ fun AppDrawer(
             selected = langMode == AppLang.DE,
         ) { onSetLang(AppLang.DE) }
 
+        // тема: переключатель работает для схем с тёмной парой
+        // («Стандартная», «Сталь»); у одиночных схем только светлая версия
+        val skin = Skins.byId(skinId)
+        val themeAware = skinId == Skins.CLASSIC_ID || skin?.darkColors != null
         SectionLabel(s.themeSection, Modifier.padding(start = 8.dp, top = 18.dp, bottom = 4.dp))
-        OptionRow(
-            icon = Icons.Filled.AutoMode,
-            label = s.themeSystem,
-            selected = themeMode == ThemeMode.SYSTEM,
-        ) { onSetTheme(ThemeMode.SYSTEM) }
-        OptionRow(
-            icon = Icons.Filled.LightMode,
-            label = s.themeLight,
-            selected = themeMode == ThemeMode.LIGHT,
-        ) { onSetTheme(ThemeMode.LIGHT) }
-        OptionRow(
-            icon = Icons.Filled.DarkMode,
-            label = s.themeDark,
-            selected = themeMode == ThemeMode.DARK,
-        ) { onSetTheme(ThemeMode.DARK) }
+        if (themeAware) {
+            OptionRow(
+                icon = Icons.Filled.AutoMode,
+                label = s.themeSystem,
+                selected = themeMode == ThemeMode.SYSTEM,
+            ) { onSetTheme(ThemeMode.SYSTEM) }
+            OptionRow(
+                icon = Icons.Filled.LightMode,
+                label = s.themeLight,
+                selected = themeMode == ThemeMode.LIGHT,
+            ) { onSetTheme(ThemeMode.LIGHT) }
+            OptionRow(
+                icon = Icons.Filled.DarkMode,
+                label = s.themeDark,
+                selected = themeMode == ThemeMode.DARK,
+            ) { onSetTheme(ThemeMode.DARK) }
+        } else {
+            Row(
+                Modifier
+                    .padding(top = 2.dp, bottom = 2.dp)
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Filled.LightMode,
+                    contentDescription = null,
+                    tint = fs.on3,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    s.themeLightOnly,
+                    Modifier.padding(start = 12.dp),
+                    color = fs.on3,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W600,
+                )
+            }
+        }
 
         // «О программе» прижата к нижнему краю шторки (распорка забирает свободное место)
         Spacer(Modifier.weight(1f))
