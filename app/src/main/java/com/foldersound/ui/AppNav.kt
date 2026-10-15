@@ -107,6 +107,8 @@ fun AppNav(
                 vm = vm,
                 themeMode = themeMode,
                 onSetTheme = onSetTheme,
+                langMode = langMode,
+                onSetLang = onSetLang,
                 onOpenPlayer = { push(Screen.Player) },
                 onOpenEq = { push(Screen.Eq) },
                 onOpenSleepTimer = { push(Screen.Sleep) },
@@ -117,8 +119,6 @@ fun AppNav(
             )
             Screen.Settings -> com.foldersound.ui.settings.SettingsScreen(
                 onBack = { pop() },
-                langMode = langMode,
-                onSetLang = onSetLang,
                 skinId = skinId,
                 onSetSkinId = onSetSkinId,
                 seekButtonsShown = seekButtonsShown,

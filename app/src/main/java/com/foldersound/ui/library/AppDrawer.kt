@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
@@ -49,19 +50,21 @@ import com.foldersound.playback.SleepTimer
 import com.foldersound.ui.common.SectionLabel
 import com.foldersound.ui.common.formatMs
 import com.foldersound.ui.common.holdToggle
+import com.foldersound.ui.i18n.AppLang
 import com.foldersound.ui.i18n.LocalStrings
 import com.foldersound.ui.theme.Fs
 import com.foldersound.ui.theme.ThemeMode
 import kotlinx.coroutines.delay
 
 /**
- * Боковая шторка: эквалайзер, таймер сна, настройки, выбор темы оформления.
- * Выбор языка перенесён на экран «Настройки».
+ * Боковая шторка: эквалайзер, таймер сна, настройки, выбор языка и темы оформления.
  */
 @Composable
 fun AppDrawer(
     themeMode: ThemeMode,
     onSetTheme: (ThemeMode) -> Unit,
+    langMode: AppLang,
+    onSetLang: (AppLang) -> Unit,
     onOpenEq: () -> Unit,
     onOpenSleepTimer: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -180,6 +183,29 @@ fun AppDrawer(
             label = s.settings,
             onClick = onOpenSettings,
         )
+
+        // выбор языка интерфейса — перед темой
+        SectionLabel(s.langSection, Modifier.padding(start = 8.dp, top = 18.dp, bottom = 4.dp))
+        OptionRow(
+            icon = Icons.Filled.Language,
+            label = s.langSystem,
+            selected = langMode == AppLang.SYSTEM,
+        ) { onSetLang(AppLang.SYSTEM) }
+        OptionRow(
+            badge = "RU",
+            label = s.langRu,
+            selected = langMode == AppLang.RU,
+        ) { onSetLang(AppLang.RU) }
+        OptionRow(
+            badge = "EN",
+            label = s.langEn,
+            selected = langMode == AppLang.EN,
+        ) { onSetLang(AppLang.EN) }
+        OptionRow(
+            badge = "DE",
+            label = s.langDe,
+            selected = langMode == AppLang.DE,
+        ) { onSetLang(AppLang.DE) }
 
         SectionLabel(s.themeSection, Modifier.padding(start = 8.dp, top = 18.dp, bottom = 4.dp))
         OptionRow(

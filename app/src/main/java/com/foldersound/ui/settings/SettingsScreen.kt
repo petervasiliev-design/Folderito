@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -55,7 +54,6 @@ import com.foldersound.ui.common.FsSwitch
 import com.foldersound.ui.common.HSlider
 import com.foldersound.ui.common.IconBtn
 import com.foldersound.ui.common.SectionLabel
-import com.foldersound.ui.i18n.AppLang
 import com.foldersound.ui.i18n.LocalStrings
 import com.foldersound.ui.theme.Fs
 import com.foldersound.ui.theme.FsColors
@@ -70,8 +68,6 @@ import kotlin.math.roundToInt
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    langMode: AppLang,
-    onSetLang: (AppLang) -> Unit,
     skinId: String,
     onSetSkinId: (String) -> Unit,
     seekButtonsShown: Boolean,
@@ -112,40 +108,6 @@ fun SettingsScreen(
         }
 
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
-
-            // язык интерфейса (перенесено из шторки)
-            SectionLabel(s.langSection, Modifier.padding(start = 4.dp, bottom = 6.dp))
-            Column(
-                Modifier
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(fs.surf)
-                    .padding(vertical = 6.dp),
-            ) {
-                LangRow(
-                    badge = null,
-                    label = s.langSystem,
-                    selected = langMode == AppLang.SYSTEM,
-                    onClick = { onSetLang(AppLang.SYSTEM) },
-                )
-                LangRow(
-                    badge = "RU",
-                    label = s.langRu,
-                    selected = langMode == AppLang.RU,
-                    onClick = { onSetLang(AppLang.RU) },
-                )
-                LangRow(
-                    badge = "EN",
-                    label = s.langEn,
-                    selected = langMode == AppLang.EN,
-                    onClick = { onSetLang(AppLang.EN) },
-                )
-                LangRow(
-                    badge = "DE",
-                    label = s.langDe,
-                    selected = langMode == AppLang.DE,
-                    onClick = { onSetLang(AppLang.DE) },
-                )
-            }
 
             // цветовая схема (скин)
             SectionLabel(s.skinSection, Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp))
@@ -473,66 +435,4 @@ private fun SkinSwatch(c: FsColors) {
     }
 }
 
-/** Строка выбора языка: значок-бейдж (или глобус), название, галочка при выборе. */@Composable
-private fun LangRow(
-    badge: String?,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val fs = Fs.c
-    Row(
-        Modifier
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-            .fillMaxWidth()
-            .height(46.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (selected) fs.surf2 else Color.Transparent)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        when {
-            badge != null -> Box(
-                Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(if (selected) fs.accent else fs.surf2),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    badge,
-                    color = if (selected) fs.onAccent else fs.on2,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.W800,
-                )
-            }
-            else -> Icon(
-                Icons.Filled.Language,
-                contentDescription = null,
-                tint = if (selected) fs.accent else fs.on3,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        Text(
-            label,
-            Modifier.padding(start = 12.dp),
-            color = if (selected) fs.on else fs.on2,
-            fontSize = 15.sp,
-            fontWeight = if (selected) FontWeight.W700 else FontWeight.W600,
-        )
-        Spacer(Modifier.weight(1f))
-        if (selected) {
-            Icon(
-                Icons.Filled.Check,
-                contentDescription = null,
-                tint = fs.accent,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-    }
-}
+/** Строка выбора языка: значок-бейдж (или глобус), название, галочка при выборе. */

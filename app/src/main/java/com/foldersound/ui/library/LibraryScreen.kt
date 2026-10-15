@@ -248,6 +248,8 @@ fun LibraryScreen(
     vm: LibraryViewModel,
     themeMode: ThemeMode,
     onSetTheme: (ThemeMode) -> Unit,
+    langMode: AppLang,
+    onSetLang: (AppLang) -> Unit,
     onOpenPlayer: () -> Unit,
     onOpenEq: () -> Unit,
     onOpenSleepTimer: () -> Unit,
@@ -411,6 +413,8 @@ fun LibraryScreen(
             AppDrawer(
                 themeMode = themeMode,
                 onSetTheme = onSetTheme,
+                langMode = langMode,
+                onSetLang = onSetLang,
                 onOpenEq = {
                     drawerOpen = false
                     onOpenEq()
