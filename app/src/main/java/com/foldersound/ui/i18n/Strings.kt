@@ -3,23 +3,29 @@ package com.foldersound.ui.i18n
 import androidx.compose.runtime.staticCompositionLocalOf
 import java.util.Locale
 
-/** Язык интерфейса: система / русский / английский. */
+/** Язык интерфейса: система / русский / английский / немецкий. */
 enum class AppLang(val code: String) {
     SYSTEM("system"),
     RU("ru"),
-    EN("en");
+    EN("en"),
+    DE("de");
 
     companion object {
         fun fromCode(code: String?): AppLang = entries.firstOrNull { it.code == code } ?: SYSTEM
     }
 }
 
-/** Эффективный язык для режима SYSTEM: русский, если системная локаль русская. */
+/** Эффективный язык для режима SYSTEM: по системной локали, иначе английский. */
 fun effectiveLangCode(mode: AppLang): String = when (mode) {
     AppLang.RU -> "ru"
     AppLang.EN -> "en"
+    AppLang.DE -> "de"
     AppLang.SYSTEM ->
-        if (Locale.getDefault().language.startsWith("ru")) "ru" else "en"
+        when (Locale.getDefault().language) {
+            "ru" -> "ru"
+            "de" -> "de"
+            else -> "en"
+        }
 }
 
 /** Формы множественного числа: one / few / many (в английском few не используется). */
@@ -108,6 +114,7 @@ data class FsStrings(
     val langSystem: String,
     val langRu: String,
     val langEn: String,
+    val langDe: String,
     val sleepTimerSection: String,
     val sleepCustom: String,
     val sleepRemaining: String,
@@ -255,6 +262,7 @@ private val RuStrings = FsStrings(
     langSystem = "Системный",
     langRu = "Русский",
     langEn = "English",
+    langDe = "Deutsch",
     sleepTimerSection = "Таймер сна",
     sleepCustom = "Своё",
     sleepRemaining = "Осталось",
@@ -377,6 +385,7 @@ private val EnStrings = FsStrings(
     langSystem = "System",
     langRu = "Русский",
     langEn = "English",
+    langDe = "Deutsch",
     sleepTimerSection = "Sleep timer",
     sleepCustom = "Custom",
     sleepRemaining = "Time left",
@@ -412,6 +421,133 @@ private val EnStrings = FsStrings(
     listEmpty = "The list is empty",
 )
 
-fun stringsFor(langCode: String): FsStrings = if (langCode == "en") EnStrings else RuStrings
+private val DeStrings = FsStrings(
+    langCode = "de",
+    folders = "Ordner",
+    tracks = "Titel",
+    playlists = "Playlists",
+    songsGroup = "Songs",
+    selectionEmpty = "Nichts ausgewählt — markiere Songs im Ordnerbaum",
+    search = "Suche",
+    searchHint = "Titel, Interpret oder Album…",
+    collapseAllFolders = "Alle Ordner zuklappen",
+    closeSearch = "Suche schließen",
+    clear = "Löschen",
+    toggleTheme = "Design wechseln",
+    switchLanguage = "Sprache wechseln",
+    nothingFound = "Nichts gefunden",
+    found = "Gefunden",
+    emptyLibrary = "Keine Musik gefunden",
+    collapse = "Zuklappen",
+    expand = "Aufklappen",
+    selectedPrefix = "Ausgewählt",
+    nothingSelected = "Nichts ausgewählt",
+    clearAll = "Alles abwählen",
+    toPlayer = "Zum Player",
+    toSongs = "Zur Songliste",
+    clearSelection = "Auswahl aufheben",
+    playSelected = "Ausgewähltes abspielen",
+    playPause = "Wiedergabe/Pause",
+    nextTrack = "Nächster Titel",
+    unknownArtist = "Unbekannter Interpret",
+    noAlbum = "Ohne Album",
+    hoursShort = "Std.",
+    minutesShort = "min",
+    pTracks = Plurals("Titel", "Titel", "Titel"),
+    pFolders = Plurals("Ordner", "Ordner", "Ordner"),
+    pSubfolders = Plurals("Unterordner", "Unterordner", "Unterordner"),
+    pPlaylists = Plurals("Playlist", "Playlists", "Playlists"),
+    nowPlaying = "Jetzt läuft",
+    backToLibrary = "Zurück zur Bibliothek",
+    equalizer = "Equalizer",
+    shuffleOn = "Zufallswiedergabe an",
+    shuffleOff = "Zufallswiedergabe aus",
+    prevTrack = "Vorheriger Titel",
+    pause = "Pause",
+    play = "Abspielen",
+    repeatAll = "Alle Titel wiederholen",
+    repeatOne = "Einen Titel wiederholen",
+    repeatOff = "Wiederholung aus",
+    backToPlayer = "Zurück zum Player",
+    reset = "Zurücksetzen",
+    eqSubtitle = "Passt den Klang an deine Kopfhörer an",
+    eqUnavailable = "Equalizer-Bänder auf diesem Gerät nicht verfügbar",
+    rangeLabel = "Bereich",
+    dbUnit = "dB",
+    bassBoost = "Bass-Verstärkung",
+    surround = "Raumklang",
+    presetNames = mapOf(
+        "normal" to "Normal",
+        "rock" to "Rock",
+        "pop" to "Pop",
+        "jazz" to "Jazz",
+        "classical" to "Klassik",
+        "electronic" to "Elektronisch",
+        "hiphop" to "Hip-Hop",
+        "bass" to "Bass+",
+        "custom" to "Eigenes",
+    ),
+    needAccess = "Zugriff auf Musik erforderlich",
+    permText = "Die App liest nur Audiodateien, um die Bibliothek nach Ordnern aufzubauen. Andere Dateien bleiben ihr unsichtbar.",
+    allowAccess = "Zugriff erlauben",
+    permHint = "Wenn die Abfrage nicht erscheint, öffne die App-Einstellungen und erlaube den Musikzugriff dort manuell.",
+    openSettings = "Einstellungen öffnen",
+    menu = "Menü",
+    settings = "Einstellungen",
+    seekButtonsLabel = "Spulentasten",
+    seekStepLabel = "Spulschritt",
+    secShort = "s",
+    songsList = "Songliste",
+    themeSection = "Design",
+    themeSystem = "System",
+    themeLight = "Hell",
+    themeDark = "Dunkel",
+    skinSection = "Farbschema",
+    skinClassic = "Standard",
+    langSection = "Sprache",
+    langSystem = "System",
+    langRu = "Русский",
+    langEn = "English",
+    langDe = "Deutsch",
+    sleepTimerSection = "Sleep-Timer",
+    sleepCustom = "Eigene",
+    sleepRemaining = "Verbleibend",
+    sleepCancel = "Timer schließen (1 s gedrückt halten)",
+    sleepStart = "Starten",
+    clearAllConfirm = "Auswahl aller Ordner und Titel aufheben?",
+    cancel = "Abbrechen",
+    unavailable = "nicht verfügbar",
+    batteryTitle = "Akku",
+    batteryHint = "Hintergrundbetrieb erlauben, damit die Musik weiterläuft",
+    playbackSettingsTitle = "Hörbuch-Einstellungen",
+    speedTitle = "Wiedergabegeschwindigkeit",
+    skipSilenceTitle = "Stille überspringen",
+    skipSilenceHint = "Ruhige Passagen werden automatisch übersprungen",
+    clarityTitle = "Sprachklarheit",
+    clarityHint = "Sprachvoreinstellung — schaltet den Equalizer aus",
+    seekHoldHint = "Spulentasten im Player 2 s gedrückt halten, um diese Einstellung zu öffnen",
+    searchDesc = "Suche nach Titel, Interpret und Album",
+    collapseAllDesc = "Klappt den Ordnerbaum zum Stammordner ein",
+    clearAllDesc = "Hebt die Auswahl aller Ordner und Titel auf",
+    savePlaylist = "Playlist speichern",
+    playlistName = "Name der Playlist",
+    save = "Speichern",
+    saveFailed = "Playlist konnte nicht gespeichert werden",
+    favorites = "Favoriten",
+    addToFavorites = "Zu Favoriten hinzufügen",
+    removeFromFavorites = "Aus Favoriten entfernen",
+    hideFolder = "Ausblenden",
+    favFoldersSection = "Lieblingsordner",
+    hiddenFoldersSection = "Ausgeblendete Ordner",
+    favFoldersHint = "Ordner hinzufügen: Ordnerkachel im Baum 2 s gedrückt halten → „Zu Favoriten hinzufügen“",
+    hiddenFoldersHint = "Ordner ausblenden: Ordnerkachel im Baum 2 s gedrückt halten → „Ausblenden“",
+    listEmpty = "Die Liste ist leer",
+)
+
+fun stringsFor(langCode: String): FsStrings = when (langCode) {
+    "en" -> EnStrings
+    "de" -> DeStrings
+    else -> RuStrings
+}
 
 val LocalStrings = staticCompositionLocalOf { RuStrings }

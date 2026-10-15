@@ -139,6 +139,12 @@ fun SettingsScreen(
                     selected = langMode == AppLang.EN,
                     onClick = { onSetLang(AppLang.EN) },
                 )
+                LangRow(
+                    badge = "DE",
+                    label = s.langDe,
+                    selected = langMode == AppLang.DE,
+                    onClick = { onSetLang(AppLang.DE) },
+                )
             }
 
             // цветовая схема (скин)
