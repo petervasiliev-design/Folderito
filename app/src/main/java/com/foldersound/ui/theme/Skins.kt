@@ -79,14 +79,15 @@ object Skins {
     const val CLASSIC_ID = "classic"
 
     val all: List<Skin> = listOf(
-        // Схема пользователя: белый фон, жёлтая primary, тёмно-синий акцент.
+        // «Янтарь»: белый фон, янтарная primary, тёмно-синий акцент (формат пользователя;
+        // раньше называлась «Своя»).
         // Text не был задан — взят равным акценту #232F3E.
         // Обычные папки заданы вручную — темнее автоправила от Secondary;
         // стандартные папки (music…) остаются на автоправиле от Accent.
         skinFromShort(
             id = "custom1",
-            nameRu = "Своя",
-            nameEn = "Custom",
+            nameRu = "Янтарь",
+            nameEn = "Amber",
             text = 0xFF232F3E,
             background = 0xFFFFFFFF,
             primary = 0xFFFFD814,
@@ -135,6 +136,18 @@ object Skins {
                 ),
             )
         },
+
+        // «Сталь»: серо-синий фон, тёмно-синие primary/акцент, белый текст (формат пользователя).
+        skinFromShort(
+            id = "steel",
+            nameRu = "Сталь",
+            nameEn = "Steel",
+            text = 0xFFFFFFFF,
+            background = 0xFF5E6E88,
+            primary = 0xFF2D3E52,
+            secondary = 0xFF41516A,
+            accent = 0xFF1C2739,
+        ),
     )
 
     fun byId(id: String?): Skin? = all.firstOrNull { it.id == id }
