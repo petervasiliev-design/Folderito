@@ -81,6 +81,8 @@ class MainActivity : ComponentActivity() {
                 .collectAsStateWithLifecycle(true)
             val seekStep by fsApp.settings.seekStepSec
                 .collectAsStateWithLifecycle(10)
+            val vinylStyle by fsApp.settings.vinylStyle
+                .collectAsStateWithLifecycle("vinyl")
             val playbackSpeed by fsApp.settings.playbackSpeed
                 .collectAsStateWithLifecycle(1f)
             val eqState by AudioEffects.state
@@ -98,6 +100,10 @@ class MainActivity : ComponentActivity() {
                         skinId = skinId,
                         onSetSkinId = { id ->
                             lifecycleScope.launch { fsApp.settings.setSkinId(id) }
+                        },
+                        vinylStyle = vinylStyle,
+                        onSetVinylStyle = { style ->
+                            lifecycleScope.launch { fsApp.settings.setVinylStyle(style) }
                         },
                         langMode = langMode,
                         onSetLang = { lang ->
@@ -186,6 +192,8 @@ private fun AppRoot(
     onSetTheme: (ThemeMode) -> Unit,
     skinId: String,
     onSetSkinId: (String) -> Unit,
+    vinylStyle: String,
+    onSetVinylStyle: (String) -> Unit,
     langMode: AppLang,
     onSetLang: (AppLang) -> Unit,
     seekButtonsShown: Boolean,
@@ -228,6 +236,8 @@ private fun AppRoot(
             onSetTheme = onSetTheme,
             skinId = skinId,
             onSetSkinId = onSetSkinId,
+            vinylStyle = vinylStyle,
+            onSetVinylStyle = onSetVinylStyle,
             langMode = langMode,
             onSetLang = onSetLang,
             seekButtonsShown = seekButtonsShown,

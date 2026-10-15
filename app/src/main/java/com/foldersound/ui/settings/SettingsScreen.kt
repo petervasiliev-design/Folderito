@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,6 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -58,7 +62,9 @@ import com.foldersound.ui.i18n.LocalStrings
 import com.foldersound.ui.theme.Fs
 import com.foldersound.ui.theme.FsColors
 import com.foldersound.ui.theme.Skins
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * Экран «Настройки»: язык, цветовая схема, кнопки перемотки и их шаг (5–60 с).
@@ -72,6 +78,8 @@ fun SettingsScreen(
     onSetLang: (AppLang) -> Unit,
     skinId: String,
     onSetSkinId: (String) -> Unit,
+    vinylStyle: String = "vinyl",
+    onSetVinylStyle: (String) -> Unit = {},
     seekButtonsShown: Boolean,
     onSetSeekButtons: (Boolean) -> Unit,
     seekStepSec: Int,
@@ -161,6 +169,28 @@ fun SettingsScreen(
                         selected = skinId == skin.id,
                         onClick = { onSetSkinId(skin.id) },
                     )
+                }
+            }
+
+            // вид пластинки за обложкой в плеере
+            SectionLabel(s.vinylStyleSection, Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp))
+            Column(
+                Modifier
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(fs.surf)
+                    .padding(vertical = 6.dp),
+            ) {
+                StyleRow(label = s.vinylStyleVinyl, selected = vinylStyle == "vinyl", icon = { VinylPreview() }) {
+                    onSetVinylStyle("vinyl")
+                }
+                StyleRow(label = s.vinylStyleReel, selected = vinylStyle == "reel", icon = { ReelPreview() }) {
+                    onSetVinylStyle("reel")
+                }
+                StyleRow(label = s.vinylStyleCassette, selected = vinylStyle == "cassette", icon = { CassettePreview() }) {
+                    onSetVinylStyle("cassette")
+                }
+                StyleRow(label = s.vinylStyleCd, selected = vinylStyle == "cd", icon = { CdPreview() }) {
+                    onSetVinylStyle("cd")
                 }
             }
 
@@ -348,6 +378,124 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+/** Строка выбора стиля пластинки: мини-превью носителя, название и галочка. */
+@Composable
+private fun StyleRow(
+    label: String,
+    selected: Boolean,
+    icon: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit,
+) {
+    val fs = Fs.c
+    Row(
+        Modifier
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .fillMaxWidth()
+            .height(46.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) fs.surf2 else Color.Transparent)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) { icon() }
+            Spacer(Modifier.width(10.dp))
+        }
+        Text(
+            label,
+            Modifier.weight(1f),
+            color = if (selected) fs.on else fs.on2,
+            fontSize = 15.sp,
+            fontWeight = if (selected) FontWeight.W700 else FontWeight.W600,
+        )
+        if (selected) {
+            Icon(
+                Icons.Filled.Check,
+                contentDescription = null,
+                tint = fs.accent,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+/* ==================== мини-превью носителей ==================== */
+
+@Composable
+private fun VinylPreview() {
+    val fs = Fs.c
+    Box(Modifier.size(26.dp).clip(CircleShape).background(Color(0xFF1F2536)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(10.dp).clip(CircleShape).background(fs.secondary))
+        Box(Modifier.size(2.dp).clip(CircleShape).background(fs.bg))
+    }
+}
+
+@Composable
+private fun ReelPreview() {
+    val fs = Fs.c
+    Canvas(Modifier.size(26.dp)) {
+        val r = size.minDimension / 2f
+        val c = Offset(r, r)
+        drawCircle(Color(0xFF1F2536), radius = r)
+        drawCircle(Color(0xFF6B5335), radius = r * 0.62f)
+        drawCircle(Color(0xFF1F2536), radius = r * 0.52f)
+        for (i in 0 until 3) {
+            val a = Math.toRadians((120 * i - 90).toDouble())
+            drawCircle(
+                Color(0xFF6B5335),
+                radius = r * 0.22f,
+                center = c + Offset(r * 0.36f * cos(a).toFloat(), r * 0.36f * sin(a).toFloat()),
+            )
+        }
+        drawCircle(fs.secondary, radius = r * 0.28f)
+    }
+}
+
+@Composable
+private fun CassettePreview() {
+    val fs = Fs.c
+    Box(
+        Modifier
+            .size(28.dp, 22.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color(0xFF262D42)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(7.dp).clip(CircleShape).background(fs.secondary))
+            Box(Modifier.size(3.dp).height(8.dp).background(Color(0xFF6B5335)))
+            Box(Modifier.size(7.dp).clip(CircleShape).background(fs.secondary))
+        }
+    }
+}
+
+@Composable
+private fun CdPreview() {
+    val fs = Fs.c
+    Box(
+        Modifier
+            .size(26.dp)
+            .clip(CircleShape)
+            .background(
+                Brush.sweepGradient(
+                    0f to Color(0xFFC9CBD4),
+                    0.25f to Color(0xFFE9D9EE),
+                    0.5f to Color(0xFFCDDDE9),
+                    0.75f to Color(0xFFE9E3C9),
+                    1f to Color(0xFFC9CBD4),
+                )
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(fs.bg))
     }
 }
 

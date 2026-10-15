@@ -1,6 +1,7 @@
 package com.foldersound.ui.player
 
 import android.net.Uri
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +9,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,10 +20,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -51,8 +51,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -80,12 +84,16 @@ import com.foldersound.ui.common.holdToggle
 import com.foldersound.ui.common.horizontalSwipes
 import com.foldersound.ui.theme.Fs
 import kotlinx.coroutines.delay
+import kotlin.math.cos
+import kotlin.math.min
+import kotlin.math.sin
 
 @Composable
 fun PlayerScreen(
     connection: PlayerConnection,
     track: Track?,
     pathText: String,
+    vinylStyle: String = "vinyl",
     onBack: () -> Unit,
     onOpenEq: () -> Unit,
     onOpenPlaybackSettings: () -> Unit,
@@ -185,52 +193,67 @@ fun PlayerScreen(
             )
         }
 
-        Column(
+        // обложка: занимает всё место между шапкой и названием; когда название
+        // занимает больше строк, блок названия растёт вверх, а обложка сжимается
+        BoxWithConstraints(
             Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 26.dp)
+                .fillMaxWidth()
+                .padding(start = 26.dp, end = 26.dp, top = 8.dp)
         ) {
+            // естественный размер композиции «обложка + пластинка»
+            val scale = min(min(maxWidth / 308.dp, maxHeight / 252.dp), 1f)
             ArtWithVinyl(
                 artUri = track?.albumArtUri,
                 isPlaying = isPlaying,
+                vinylStyle = vinylStyle,
                 modifier = Modifier
-                    .padding(top = 14.dp)
-                    .align(Alignment.CenterHorizontally),
+                    .align(Alignment.Center)
+                    .graphicsLayer { scaleX = scale; scaleY = scale },
             )
+        }
 
-            // метаданные
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+        // название и исполнитель: низ блока зафиксирован над нижней частью,
+        // лишние строки вытесняют обложку вверх
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                track?.title?.ifBlank { "—" } ?: "—",
+                color = fs.on,
+                fontSize = 21.sp,
+                fontWeight = FontWeight.W800,
+                textAlign = TextAlign.Center,
+                lineHeight = 26.sp,
+            )
+            Text(
+                track?.artist?.ifBlank { s.unknownArtist } ?: "—",
+                Modifier.padding(top = 3.dp),
+                color = fs.accent,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.W700,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        // нижний блок фиксированной высоты: чипы, полоса времени, пилюли, транспорт
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                Text(
-                    track?.title?.ifBlank { "—" } ?: "—",
-                    color = fs.on,
-                    fontSize = 21.sp,
-                    fontWeight = FontWeight.W800,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 26.sp,
-                )
-                Text(
-                    track?.artist?.ifBlank { s.unknownArtist } ?: "—",
-                    Modifier.padding(top = 3.dp),
-                    color = fs.accent,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.W700,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Row(
-                    Modifier.padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
-                ) {
-                    Chip(FsIcons.SoundWave, track?.album?.ifBlank { s.noAlbum } ?: "—")
-                    Chip(FsIcons.Folder, pathText)
-                }
+                Chip(FsIcons.SoundWave, track?.album?.ifBlank { s.noAlbum } ?: "—")
+                Chip(FsIcons.Folder, pathText)
             }
 
             // позиция
@@ -329,8 +352,18 @@ fun PlayerScreen(
 
 /* ==================== обложка + пластинка ==================== */
 
+/**
+ * Обложка с «носителем» позади: варианты — виниловая пластинка, бобина,
+ * кассета, компакт-диск (выбор в Настройках). Крутится только диск/катушки
+ * и только во время воспроизведения.
+ */
 @Composable
-private fun ArtWithVinyl(artUri: Uri?, isPlaying: Boolean, modifier: Modifier = Modifier) {
+private fun ArtWithVinyl(
+    artUri: Uri?,
+    isPlaying: Boolean,
+    vinylStyle: String,
+    modifier: Modifier = Modifier,
+) {
     val fs = Fs.c
     var angle by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(isPlaying) {
@@ -347,36 +380,16 @@ private fun ArtWithVinyl(artUri: Uri?, isPlaying: Boolean, modifier: Modifier = 
         }
     }
     Box(modifier.size(308.dp, 252.dp)) {
-        // пластинка справа, выглядывает из-за обложки (как .vinyl в макете)
-        Box(
-            Modifier
-                .offset(x = 186.dp, y = 23.dp)
-                .size(122.dp, 206.dp)
-                .graphicsLayer { rotationZ = angle }
-                .shadow(10.dp, RoundedCornerShape(50))
-                .clip(RoundedCornerShape(50))
-                .background(vinylBrush())
-        ) {
-            // центральная этикетка
-            Box(
-                Modifier
-                    .align(Alignment.Center)
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(fs.secondary)
-            ) {
-                Box(
-                    Modifier
-                        .align(Alignment.Center)
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(fs.bg)
-                )
-            }
+        when (vinylStyle) {
+            "reel" -> ReelDisc(angle, Modifier.align(Alignment.CenterEnd))
+            "cassette" -> CassetteTape(angle, Modifier.align(Alignment.CenterEnd))
+            "cd" -> CompactDisc(angle, Modifier.align(Alignment.CenterEnd))
+            else -> VinylDisc(angle, Modifier.align(Alignment.CenterEnd))
         }
         // обложка
         Box(
             Modifier
+                .align(Alignment.CenterStart)
                 .size(252.dp)
                 .shadow(26.dp, RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
@@ -402,16 +415,221 @@ private fun ArtWithVinyl(artUri: Uri?, isPlaying: Boolean, modifier: Modifier = 
     }
 }
 
-/** Бороздки пластинки — чередование двух тёмных оттенков. */
-private fun vinylBrush(): Brush {
+/** Диаметр круглого носителя за обложкой (винил/бобина/CD). */
+private val DiscSize = 206.dp
+
+/** Круглый носитель, выглядывающий из-за обложки справа. */
+@Composable
+private fun DiscSlot(
+    angle: Float,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier
+            .offset(x = 102.dp)
+            .size(DiscSize)
+            .graphicsLayer { rotationZ = angle }
+    ) {
+        content()
+    }
+}
+
+/** Винил: чёрный диск с бороздками и цветной этикеткой. */
+@Composable
+private fun VinylDisc(angle: Float, modifier: Modifier = Modifier) {
+    val fs = Fs.c
+    DiscSlot(angle, modifier) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .shadow(10.dp, CircleShape)
+                .clip(CircleShape)
+                .background(vinylGroovesBrush())
+        ) {
+            // этикетка
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(fs.secondary)
+            )
+            // отверстие
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .size(9.dp)
+                    .clip(CircleShape)
+                    .background(fs.bg)
+            )
+        }
+    }
+}
+
+/** Бобина: катушка с окошками, сквозь которые видна лента. */
+@Composable
+private fun ReelDisc(angle: Float, modifier: Modifier = Modifier) {
+    val fs = Fs.c
+    DiscSlot(angle, modifier) {
+        Canvas(Modifier.fillMaxSize().shadow(10.dp, CircleShape, clip = false)) {
+            val r = size.minDimension / 2f
+            val c = Offset(r, r)
+            // корпус катушки
+            drawCircle(Color(0xFF1F2536), radius = r)
+            drawCircle(Color(0xFF2C3450), radius = r * 0.94f, style = Stroke(width = r * 0.05f))
+            // лента по краю
+            drawCircle(Color(0xFF6B5335), radius = r * 0.86f)
+            drawCircle(Color(0xFF1F2536), radius = r * 0.80f)
+            // окошки (три), сквозь них видна лента
+            val window = r * 0.34f
+            for (i in 0 until 3) {
+                val a = Math.toRadians((120 * i).toDouble())
+                val cx = c.x + window * cos(a).toFloat()
+                val cy = c.y + window * sin(a).toFloat()
+                drawCircle(Color(0xFF6B5335), radius = r * 0.17f, center = Offset(cx, cy))
+            }
+            // втулка с зубцами
+            drawCircle(Color(0xFF39415E), radius = r * 0.30f)
+            for (i in 0 until 6) {
+                rotate(degrees = 60f * i + angle % 60f) {
+                    drawLine(
+                        Color(0xFF1F2536),
+                        start = Offset(c.x, c.y - r * 0.28f),
+                        end = Offset(c.x, c.y - r * 0.12f),
+                        strokeWidth = r * 0.09f,
+                    )
+                }
+            }
+            drawCircle(Color(0xFF141827), radius = r * 0.10f)
+        }
+    }
+}
+
+/** Кассета: корпус статичен, крутятся катушки в окне. */
+@Composable
+private fun CassetteTape(angle: Float, modifier: Modifier = Modifier) {
+    val fs = Fs.c
+    Box(
+        modifier
+            .offset(x = 40.dp)
+            .size(160.dp, 210.dp)
+            .shadow(10.dp, RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFF262D42))
+    ) {
+        // окно с катушками
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 16.dp)
+                .size(120.dp, 96.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF171B2A))
+        ) {
+            ReelHub(angle, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
+            ReelHub(-angle, Modifier.align(Alignment.CenterEnd).padding(end = 8.dp))
+        }
+        // этикетка снизу
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 10.dp)
+                .size(130.dp, 44.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(fs.secondary.copy(alpha = 0.85f))
+        )
+    }
+}
+
+@Composable
+private fun ReelHub(angle: Float, modifier: Modifier = Modifier) {
+    val fs = Fs.c
+    Box(
+        modifier
+            .size(44.dp)
+            .graphicsLayer { rotationZ = angle }
+            .clip(CircleShape)
+            .background(fs.secondary)
+    ) {
+        // зубцы втулки
+        for (i in 0 until 6) {
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .offset(y = (-14).dp)
+                    .size(5.dp, 12.dp)
+                    .graphicsLayer {
+                        rotationZ = 60f * i
+                        transformOrigin = TransformOrigin(0.5f, 1.83f)
+                    }
+                    .background(Color(0xFF171B2A))
+            )
+        }
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .size(12.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF171B2A))
+        )
+    }
+}
+
+/** Компакт-диск: радужный отблеск и центральное отверстие. */
+@Composable
+private fun CompactDisc(angle: Float, modifier: Modifier = Modifier) {
+    val fs = Fs.c
+    DiscSlot(angle, modifier) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .shadow(10.dp, CircleShape)
+                .clip(CircleShape)
+                .background(cdBrush())
+        ) {
+            // зеркальная зона вокруг отверстия
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .size(62.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE8E4DA))
+            )
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(fs.bg)
+            )
+        }
+    }
+}
+
+/** Отблеск CD: секторная радуга поверх серебристой подложки. */
+private fun cdBrush(): Brush = Brush.sweepGradient(
+    0f to Color(0xFFC9CBD4),
+    0.12f to Color(0xFFE9D9EE),
+    0.2f to Color(0xFFCDDDE9),
+    0.32f to Color(0xFFD9E9CD),
+    0.45f to Color(0xFFE9E3C9),
+    0.58f to Color(0xFFE9CDD5),
+    0.7f to Color(0xFFCDD4E9),
+    0.85f to Color(0xFFD6E9E4),
+    1f to Color(0xFFC9CBD4),
+)
+
+/** Бороздки пластинки — чередование двух тёмных оттенков + зона этикетки. */
+private fun vinylGroovesBrush(): Brush {
     val stops = ArrayList<Pair<Float, Color>>()
     stops.add(0f to Color(0xFF9D7B56))
-    stops.add(0.155f to Color(0xFF9D7B56))
-    var stop = 0.16f
+    stops.add(0.14f to Color(0xFF9D7B56))
+    var stop = 0.15f
     var i = 0
-    while (stop < 0.98f) {
+    while (stop < 0.99f) {
         stops.add(stop to if (i % 2 == 0) Color(0xFF1F2536) else Color(0xFF141827))
-        stop += 0.045f
+        stop += 0.042f
         i++
     }
     stops.add(1f to Color(0xFF1F2536))
