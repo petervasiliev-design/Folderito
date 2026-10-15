@@ -47,13 +47,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.UnfoldLess
-import androidx.compose.material.icons.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -648,7 +648,7 @@ private fun NothingSelectedBar(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Filled.QueueMusic,
+                Icons.AutoMirrored.Filled.QueueMusic,
                 contentDescription = null,
                 tint = if (quickFolder != null) fs.accent else fs.on3,
                 modifier = Modifier.size(22.dp),
@@ -1167,7 +1167,7 @@ private fun FolderRowView(
                 )
             }
             Icon(
-                Icons.Outlined.KeyboardArrowRight,
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = if (expandedNow) s.collapse else s.expand,
                 tint = Color.White.copy(alpha = 0.9f),
                 modifier = Modifier
@@ -1211,7 +1211,7 @@ private fun PlaylistFolderRowView(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Filled.QueueMusic,
+                Icons.AutoMirrored.Filled.QueueMusic,
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.padding(start = 2.dp).size(32.dp),
@@ -1242,7 +1242,7 @@ private fun PlaylistFolderRowView(
                 )
             }
             Icon(
-                Icons.Outlined.KeyboardArrowRight,
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = if (expandedNow) s.collapse else s.expand,
                 tint = Color.White.copy(alpha = 0.9f),
                 modifier = Modifier
@@ -1338,7 +1338,7 @@ private fun PlaylistRowView(
                 )
             }
             Icon(
-                Icons.Outlined.KeyboardArrowRight,
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = if (expandedNow) s.collapse else s.expand,
                 tint = Color.White.copy(alpha = 0.9f),
                 modifier = Modifier
@@ -1606,7 +1606,7 @@ fun SelectionBar(
                 .background(fs.surf3),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.QueueMusic, contentDescription = null, tint = fs.accent, modifier = Modifier.size(22.dp))
+            Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = fs.accent, modifier = Modifier.size(22.dp))
         }
         Column(
             Modifier

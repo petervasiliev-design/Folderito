@@ -2,5 +2,5 @@
 <resources>
     <color name="window_bg_light">#F0E3DB</color>
     <color name="window_bg_dark">#0C101D</color>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <color name="ic_launcher_background">#F0E3DB</color>
 </resources>
