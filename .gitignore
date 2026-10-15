@@ -32,3 +32,4 @@ local.properties
 
 # служебные данные ZCode-сессий
 /.zcode/
+/.zcodeignore
