@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
@@ -517,15 +518,25 @@ fun IconBtn(
 /* ==================== подпись секции ==================== */
 
 @Composable
-fun SectionLabel(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        modifier = modifier,
-        color = Fs.c.on3,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.W800,
-        letterSpacing = 1.6.sp,
-    )
+fun SectionLabel(text: String, modifier: Modifier = Modifier, icon: ImageVector? = null) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = Fs.c.on3,
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(
+            text = text,
+            color = Fs.c.on3,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.W800,
+            letterSpacing = 1.6.sp,
+        )
+    }
 }
 
 @Composable
