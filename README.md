@@ -60,6 +60,12 @@ Jetpack Compose.
 Сборка APK без Android Studio (нужен JDK 17 в PATH):
 `gradlew.bat assembleDebug` → `app\build\outputs\apk\debug\app-debug.apk`.
 
+Релизная сборка (`gradlew.bat assembleRelease` →
+`app\build\outputs\apk\release\app-release.apk`) подписывается ключом из
+`local.properties` (переменные `release.storeFile`, `release.storePassword`,
+`release.keyAlias`, `release.keyPassword`); сам файл ключа в git не входит —
+храните его и пароли в надёжном месте, они нужны для всех обновлений.
+
 ## Технологии
 
 | Слой | Решение |

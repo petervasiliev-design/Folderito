@@ -1,7 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+}
+
+// Подпись релиза: ключ и пароли лежат в local.properties (не в git).
+// Без них release собирается неподписанным — для магазина задайте
+// release.storeFile / release.storePassword / release.keyAlias / release.keyPassword.
+val releaseSigning = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -16,6 +26,18 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            val storeFile = releaseSigning.getProperty("release.storeFile")
+            if (storeFile != null) {
+                this.storeFile = rootProject.file(storeFile)
+                storePassword = releaseSigning.getProperty("release.storePassword")
+                keyAlias = releaseSigning.getProperty("release.keyAlias")
+                keyPassword = releaseSigning.getProperty("release.keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -23,6 +45,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
