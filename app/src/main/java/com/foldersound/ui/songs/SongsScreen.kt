@@ -22,7 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -139,7 +139,7 @@ fun SongsScreen(
                 textAlign = TextAlign.Center,
             )
             com.foldersound.ui.common.IconBtn(
-                Icons.AutoMirrored.Filled.PlaylistAdd,
+                Icons.Filled.Save,
                 s.savePlaylist,
                 // сохраняет показанный список: выделение, а без выделения — очередь
                 onClick = if (tracks.isEmpty()) ({ /* сохранять нечего */ }) else ({ saveError = false; saveDialog = true }),
