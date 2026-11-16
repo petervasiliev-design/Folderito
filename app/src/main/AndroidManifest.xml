@@ -22,6 +22,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Folderito">
 
+        <!-- Android Auto: приложение — медиа-плеер, дерево библиотеки отдаёт
+             MediaLibraryService (см. playback/PlaybackService.kt) -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -43,6 +49,11 @@
                 <data android:mimeType="application/ogg" />
                 <data android:mimeType="application/x-ogg" />
             </intent-filter>
+            <!-- голосовой запрос из Android Auto («играй … в Folderito») -->
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <service
@@ -53,6 +64,8 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
                 <!-- будит сервис медиа-кнопкой (магнитола/BT), когда процесс убит -->
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
+                <!-- Android Auto подключается по legacy-протоколу обозревателя -->
+                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
 

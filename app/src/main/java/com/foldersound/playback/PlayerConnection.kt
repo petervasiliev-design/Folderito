@@ -129,6 +129,18 @@ class PlayerConnection(context: Context) {
         scope.launch { settings.savePlaybackFlags(shuffle, repeat) }
     }
 
+    /** Голосовой запрос Android Auto/ассистента: пересылаем в сессию с searchQuery. */
+    fun playFromSearch(query: String) {
+        val c = ctrl() ?: return
+        val item = MediaItem.Builder()
+            .setMediaId("search:$query")
+            .setRequestMetadata(
+                MediaItem.RequestMetadata.Builder().setSearchQuery(query).build()
+            )
+            .build()
+        c.setMediaItems(listOf(item))
+    }
+
     fun connect() {
         if (future != null) return
         val token = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))

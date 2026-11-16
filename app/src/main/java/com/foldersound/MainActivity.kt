@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
         val fsApp = application as FsApp
 
         handleViewIntent(intent)
+        handleSearchIntent(intent)
 
         setContent {
             val themeMode by fsApp.settings.themeMode
@@ -134,6 +135,15 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleViewIntent(intent)
+        handleSearchIntent(intent)
+    }
+
+    /** Голосовой запрос из Android Auto/ассистента: пересылаем в сессию плеера. */
+    private fun handleSearchIntent(intent: android.content.Intent?) {
+        if (intent?.action != "android.media.action.MEDIA_PLAY_FROM_SEARCH") return
+        val query = intent.getStringExtra("query")?.trim()
+            .takeUnless { it.isNullOrEmpty() } ?: return
+        (application as FsApp).playerConnection.playFromSearch(query)
     }
 
     /** Открытие аудиофайла извне (проводник/галерея/«Открыть с помощью»). */
