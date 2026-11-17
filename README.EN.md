@@ -42,6 +42,12 @@ Written in Kotlin + Jetpack Compose.
   custom, real device bands, bass boost, surround sound.
 - **Tooltips** — holding a header button opens a window with a description.
 
+### Android Auto
+- **Android Auto** — the library in the car: a folder tree on the head unit
+  (tapping a folder plays it whole, tapping a track plays its folder from
+  that track), voice search (“play <artist or song>”) and queue restoration
+  after the app restarts. Hidden folders never reach the car.
+
 ### Looks and data
 - **Color schemes** — Default, Amber, Mist, Olive, Steel (with its own dark
   pair): five base colors unfold into a full design-token table; plus
@@ -76,7 +82,7 @@ every update.
 | Layer | Solution |
 |---|---|
 | UI | Jetpack Compose, Material 3, Manrope font (weights 500–800) |
-| Playback | Media3 ExoPlayer + MediaSessionService |
+| Playback | Media3 ExoPlayer + MediaLibraryService (Android Auto) |
 | Data | MediaStore: audio (audio-only permission — Google Play friendly), .m3u via MediaStore.Files / MediaStore.Audio.Playlists |
 | Equalizer | android.media.audiofx: Equalizer, BassBoost, Virtualizer, DynamicsProcessing (speed, skip silence) |
 | Settings & state | DataStore Preferences: theme, skin, language, equalizer, speed, queue (incl. shuffle base), selection, expanded folders, favorites, hidden folders, saved position |
