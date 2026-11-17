@@ -128,6 +128,8 @@ fun SongsScreen(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 if (fromPlayer) s.backToPlayer else s.backToLibrary,
                 onBack,
+                hintTitle = if (fromPlayer) s.backToPlayer else s.backToLibrary,
+                hintDesc = s.backDesc,
             )
             Text(
                 s.songsList,
@@ -143,11 +145,13 @@ fun SongsScreen(
                 s.savePlaylist,
                 // сохраняет показанный список: выделение, а без выделения — очередь
                 onClick = if (tracks.isEmpty()) ({ /* сохранять нечего */ }) else ({ saveError = false; saveDialog = true }),
+                hintTitle = s.savePlaylist, hintDesc = s.savePlaylistDesc,
             )
             com.foldersound.ui.common.IconBtn(
                 Icons.Filled.Cancel,
                 s.clearAll,
                 onClick = { confirmClear = true },
+                hintTitle = s.clearAll, hintDesc = s.clearAllDesc,
             )
         }
 

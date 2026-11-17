@@ -478,7 +478,7 @@ fun IconBtn(
     size: Dp = 42.dp,
     iconSize: Dp = 22.dp,
     tint: Color = Fs.c.on,
-    /** Непустой заголовок — долгий тап по кнопке открывает окно с описанием. */
+    /** Заголовок подсказки; null — долгий тап по кнопке ничего не открывает. */
     hintTitle: String? = null,
     hintDesc: String = "",
 ) {
@@ -490,11 +490,18 @@ fun IconBtn(
             modifier
                 .size(size)
                 .clip(CircleShape)
-                // удержание 2 с — окно с описанием; быстрый тап — действие
-                .holdToggle(timeoutMs = 1_000) {
-                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                    hintShown = true
-                }
+                // удержание 2 с — окно с описанием (когда подсказка задана);
+                // быстрый тап — действие
+                .then(
+                    if (hintTitle != null) {
+                        Modifier.holdToggle(timeoutMs = 1_000) {
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                            hintShown = true
+                        }
+                    } else {
+                        Modifier
+                    }
+                )
                 .clickable(interactionSource = interaction, indication = null, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
@@ -506,9 +513,9 @@ fun IconBtn(
             )
         }
     }
-    if (hintShown) {
+    if (hintShown && hintTitle != null) {
         HintDialog(
-            title = hintTitle ?: "",
+            title = hintTitle,
             desc = hintDesc,
             onDismiss = { hintShown = false },
         )

@@ -150,7 +150,8 @@ fun PlayerScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconBtn(
-                Icons.AutoMirrored.Filled.ArrowBack, s.backToLibrary, onBack
+                Icons.AutoMirrored.Filled.ArrowBack, s.backToLibrary, onBack,
+                hintTitle = s.backToLibrary, hintDesc = s.backDesc,
             )
             if (sleepDeadline != null) {
                 // удержание 1 с на чипе закрывает таймер (дубль кнопки в шторке)
@@ -175,16 +176,19 @@ fun PlayerScreen(
                 s.equalizer,
                 onOpenEq,
                 modifier = Modifier.eqDot(eqState.enabled, fs.accent),
+                hintTitle = s.equalizer, hintDesc = s.equalizerDesc,
             )
             IconBtn(
                 Icons.AutoMirrored.Filled.MenuBook,
                 s.playbackSettingsTitle,
                 onOpenPlaybackSettings,
+                hintTitle = s.playbackSettingsTitle, hintDesc = s.playbackSettingsDesc,
             )
             IconBtn(
                 Icons.AutoMirrored.Filled.ArrowForward,
                 s.toSongs,
                 onOpenSongs,
+                hintTitle = s.toSongs, hintDesc = s.toSongsDesc,
             )
         }
 
