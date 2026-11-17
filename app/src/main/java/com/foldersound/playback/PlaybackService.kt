@@ -23,6 +23,7 @@ import androidx.media3.session.SessionError
 import com.foldersound.FsApp
 import com.foldersound.data.FolderNode
 import com.foldersound.data.Library
+import com.foldersound.data.Shuffle
 import com.foldersound.data.Track
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.ListenableFuture
@@ -339,6 +340,8 @@ class PlaybackService : MediaLibraryService() {
         /**
          * Auto нажал «играть» на папке или треке: элементы приходят без URI —
          * разворачиваем их в очередь (папка целиком, старт на выбранном треке).
+         * При включённом рандоме папка играет перемешанной со случайной песни;
+         * тап по треку держит его первым, дальше — перемешанный остаток.
          * Элементы приложения с URI (обычный путь) не трогаем.
          */
         override fun onSetMediaItems(
@@ -378,22 +381,30 @@ class PlaybackService : MediaLibraryService() {
                     }
 
                     val clicked = items.first { it.localConfiguration == null }.mediaId
-                    val queue: List<MediaItem> = when {
+                    val shuffleOn = (application as FsApp).settings.loadPlaybackFlags().first
+                    val picked: Pair<List<Track>, Int> = when {
                         clicked.startsWith(TRACK_PREFIX) -> {
                             val track = lib.trackById[clicked.removePrefix(TRACK_PREFIX).toLongOrNull()]
                                 ?: throw IllegalStateException("Track not found: $clicked")
-                            queueOfFolderContaining(lib, track).map { it.playableItem() }
+                            val folderQueue = queueOfFolderContaining(lib, track)
+                            if (shuffleOn) Shuffle.shuffleQueue(folderQueue, track.id) to 0
+                            else folderQueue to folderQueue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
                         }
                         clicked.startsWith(FOLDER_PREFIX) -> {
                             val node = lib.root.findNode(clicked.removePrefix(FOLDER_PREFIX))
                                 ?: throw IllegalStateException("Folder not found: $clicked")
-                            node.allTracks.filter { !it.missing }.map { it.playableItem() }
+                            val folderQueue = node.allTracks.filter { !it.missing }
+                            // папка целиком без якоря: перемешанный список со случайной песни
+                            if (shuffleOn) Shuffle.shuffleQueue(folderQueue) to 0
+                            else folderQueue to 0
                         }
                         else -> throw IllegalStateException("Unsupported media id: $clicked")
                     }
-                    val targetId = clicked.removePrefix(TRACK_PREFIX).toLongOrNull()
-                    val idx = queue.indexOfFirst { it.mediaId == targetId.toString() }.coerceAtLeast(0)
-                    future.set(MediaSession.MediaItemsWithStartPosition(queue, idx, startPositionMs))
+                    future.set(
+                        MediaSession.MediaItemsWithStartPosition(
+                            picked.first.map { it.playableItem() }, picked.second, startPositionMs
+                        )
+                    )
                 } catch (t: Throwable) {
                     future.setException(t)
                 }

@@ -206,15 +206,16 @@ class PlayerConnection(context: Context) {
     }
 
     /** Очередь из треков; воспроизведение начинается с startIndex.
-     *  При включённом shuffle сразу играет перемешанный список с выбранного трека. */
-    fun playQueue(tracks: List<Track>, startIndex: Int) {
+     *  При включённом shuffle играет перемешанный список; [anchorStart] оставляет
+     *  выбранную песню первой (тап по конкретному треку), иначе старт на случайной. */
+    fun playQueue(tracks: List<Track>, startIndex: Int, anchorStart: Boolean = true) {
         val c = ctrl() ?: return
         val (kept, startIdx) = playable(tracks, startIndex) ?: return
         externalTrack.value = null
         val ordered: List<Track>
         val finalStart: Int
         if (shuffle.value) {
-            ordered = Shuffle.shuffleQueue(kept, kept.getOrNull(startIdx)?.id)
+            ordered = Shuffle.shuffleQueue(kept, if (anchorStart) kept.getOrNull(startIdx)?.id else null)
             finalStart = 0
         } else {
             ordered = kept
@@ -321,7 +322,8 @@ class PlayerConnection(context: Context) {
     }
 
     /** Подготовить очередь, НЕ запуская воспроизведение:
-     *  плеер покажет первый трек на паузе (после остановки играющего). */
+     *  плеер покажет стартовый трек на паузе (после остановки играющего).
+     *  Очередь — без якоря: при рандоме на паузе стоит случайная песня. */
     fun prepareQueue(tracks: List<Track>) {
         val c = ctrl() ?: return
         if (tracks.isEmpty()) {
@@ -332,7 +334,7 @@ class PlayerConnection(context: Context) {
             stopPlayback()
             return
         }
-        val ordered = if (shuffle.value) Shuffle.shuffleQueue(kept, kept.firstOrNull()?.id) else kept
+        val ordered = if (shuffle.value) Shuffle.shuffleQueue(kept, null) else kept
         val items = ordered.map { it.toMediaItem() }
         c.setMediaItems(items, 0, 0)
         c.playWhenReady = false

@@ -245,12 +245,13 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Кнопка «Слушать выбранное» на панели выбора. Выбор сохраняется —
-     *  он же «билет» для навигации к плееру. */
+     *  он же «билет» для навигации к плееру. Конкретная песня не выбрана —
+     *  при рандоме старт на случайном треке выбора. */
     fun playSelected() {
         val list = selectedTracks()
         if (list.isEmpty()) return
         setQuickFolder("")
-        connection.playQueue(list, 0)
+        connection.playQueue(list, 0, anchorStart = false)
     }
 
     fun playFrom(list: List<Track>, index: Int) {
@@ -290,7 +291,7 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     fun playPlaylist(playlist: Playlist) {
         if (playlist.tracks.isEmpty()) return
         setQuickFolder("")
-        connection.playQueue(playlist.tracks, 0)
+        connection.playQueue(playlist.tracks, 0, anchorStart = false)
     }
 
     /** Трёхцветный чекбокс плитки плейлиста — по составу плейлиста. */
