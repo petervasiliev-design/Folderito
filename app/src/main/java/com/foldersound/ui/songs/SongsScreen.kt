@@ -9,18 +9,23 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
@@ -38,10 +43,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -106,6 +114,16 @@ fun SongsScreen(
         }
     }
 
+    // фильтр показа: текст поля поиска; на очередь, выделение и сохранение не влияет
+    var filter by remember { mutableStateOf("") }
+    val shown = remember(tracks, filter) {
+        val needle = filter.trim().lowercase()
+        if (needle.isEmpty()) tracks
+        else tracks.filter {
+            "${it.title} ${it.artist} ${it.album}".lowercase().contains(needle)
+        }
+    }
+
     var confirmClear by remember { mutableStateOf(false) }
     var saveDialog by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf(false) }
@@ -155,11 +173,65 @@ fun SongsScreen(
             )
         }
 
+        // поле фильтра списка (в стиле поиска библиотеки): фильтрует только показ;
+        // непустой ввод показывает справа кнопку «Очистить поиск»
+        Row(
+            Modifier.padding(start = 6.dp, end = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(fs.surf2),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                BasicTextField(
+                    value = filter,
+                    onValueChange = { filter = it },
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        color = fs.on,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.W600,
+                    ),
+                    cursorBrush = Brush.verticalGradient(listOf(fs.accent, fs.accent)),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    decorationBox = { inner ->
+                        if (filter.isEmpty()) {
+                            Text(
+                                s.searchHint,
+                                color = fs.on3,
+                                fontSize = 14.5.sp,
+                                fontWeight = FontWeight.W600,
+                            )
+                        }
+                        inner()
+                    },
+                )
+            }
+            if (filter.isNotEmpty()) {
+                com.foldersound.ui.common.IconBtn(Icons.Filled.Close, s.clearSearch, { filter = "" })
+            } else {
+                Spacer(Modifier.width(42.dp))
+            }
+        }
+
         Box(Modifier.weight(1f)) {
             when {
                 tracks.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         s.selectionEmpty,
+                        Modifier.padding(horizontal = 40.dp),
+                        color = fs.on3,
+                        fontWeight = FontWeight.W700,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                shown.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        s.listEmpty,
                         Modifier.padding(horizontal = 40.dp),
                         color = fs.on3,
                         fontWeight = FontWeight.W700,
@@ -172,12 +244,14 @@ fun SongsScreen(
                         Modifier.fillMaxSize(),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 120.dp + navBottom),
                     ) {
-                        items(tracks, key = { it.id }) { track ->
+                        // показывается отфильтрованный список, а играем всегда
+                        // по индексам ПОЛНОГО списка — очередь не зависит от фильтра
+                        items(shown, key = { it.id }) { track ->
                             TrackRowView(
                                 track = track,
                                 isCurrent = track.id == currentId,
                                 subText = "${track.artist.ifBlank { s.unknownArtist }} · ${track.album.ifBlank { s.noAlbum }}",
-                                query = "",
+                                query = filter,
                                 onToggleSel = null,
                                 playOnLongPress = true,
                                 onPlay = {
