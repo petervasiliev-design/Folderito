@@ -48,6 +48,7 @@ object SkipSilenceState {
 private const val ROOT_ID = "!root!"
 private const val FOLDER_PREFIX = "F:"
 private const val TRACK_PREFIX = "T:"
+private const val PLAYALL_PREFIX = "P:"
 
 /**
  * Фоновый сервис воспроизведения: ExoPlayer + MediaLibrarySession (уведомление,
@@ -297,7 +298,9 @@ class PlaybackService : MediaLibraryService() {
                         else -> {
                             val node = lib.root.findNode(parentId.removePrefix(FOLDER_PREFIX))
                                 ?: throw IllegalStateException("Folder not found: $parentId")
-                            node.children.values.map { folderItem(it) } +
+                            // «играть всю папку» первым пунктом + подпапки + треки
+                            listOf(playAllItem(node)) +
+                                node.children.values.map { folderItem(it) } +
                                 node.tracks.filter { !it.missing }.map { trackItem(it) }
                         }
                     }
@@ -324,6 +327,9 @@ class PlaybackService : MediaLibraryService() {
                         mediaId.startsWith(FOLDER_PREFIX) ->
                             lib.root.findNode(mediaId.removePrefix(FOLDER_PREFIX))
                                 ?.let { folderItem(it) }
+                        mediaId.startsWith(PLAYALL_PREFIX) ->
+                            lib.root.findNode(mediaId.removePrefix(PLAYALL_PREFIX))
+                                ?.let { playAllItem(it) }
                         mediaId.startsWith(TRACK_PREFIX) ->
                             lib.trackById[mediaId.removePrefix(TRACK_PREFIX).toLongOrNull()]
                                 ?.let { trackItem(it) }
@@ -398,6 +404,14 @@ class PlaybackService : MediaLibraryService() {
                             if (shuffleOn) Shuffle.shuffleQueue(folderQueue) to 0
                             else folderQueue to 0
                         }
+                        // «▶ …» — играть папку с первого трека
+                        clicked.startsWith(PLAYALL_PREFIX) -> {
+                            val node = lib.root.findNode(clicked.removePrefix(PLAYALL_PREFIX))
+                                ?: throw IllegalStateException("Folder not found: $clicked")
+                            val folderQueue = node.allTracks.filter { !it.missing }
+                            if (shuffleOn) Shuffle.shuffleQueue(folderQueue) to 0
+                            else folderQueue to 0
+                        }
                         else -> throw IllegalStateException("Unsupported media id: $clicked")
                     }
                     future.set(
@@ -436,6 +450,12 @@ class PlaybackService : MediaLibraryService() {
                             }
                             item.mediaId.startsWith(FOLDER_PREFIX) -> {
                                 val node = lib.root.findNode(item.mediaId.removePrefix(FOLDER_PREFIX))
+                                    ?: throw IllegalStateException("Folder not found: ${item.mediaId}")
+                                node.allTracks.filter { !it.missing }
+                                    .forEach { out.add(it.playableItem()) }
+                            }
+                            item.mediaId.startsWith(PLAYALL_PREFIX) -> {
+                                val node = lib.root.findNode(item.mediaId.removePrefix(PLAYALL_PREFIX))
                                     ?: throw IllegalStateException("Folder not found: ${item.mediaId}")
                                 node.allTracks.filter { !it.missing }
                                     .forEach { out.add(it.playableItem()) }
@@ -506,8 +526,22 @@ class PlaybackService : MediaLibraryService() {
             MediaMetadata.Builder()
                 .setTitle(node.name)
                 .setIsBrowsable(true)
-                .setIsPlayable(true)
+                // папка НЕ играемая: тап открывает её, играть — пункт «▶ …» или треки
+                .setIsPlayable(false)
                 .setFolderType(MediaMetadata.FOLDER_TYPE_MIXED)
+                .build()
+        )
+        .build()
+
+    /** Псевдо-пункт «играть всю папку»: тап по нему запускает очередь папки. */
+    private fun playAllItem(node: FolderNode): MediaItem = MediaItem.Builder()
+        .setMediaId(PLAYALL_PREFIX + node.path)
+        .setMediaMetadata(
+            MediaMetadata.Builder()
+                .setTitle("▶ ${node.name}")
+                .setIsBrowsable(false)
+                .setIsPlayable(true)
+                .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
                 .build()
         )
         .build()
