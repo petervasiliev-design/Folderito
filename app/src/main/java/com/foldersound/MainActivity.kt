@@ -1,6 +1,7 @@
 package com.foldersound
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -13,32 +14,45 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -211,12 +225,8 @@ private fun AppRoot(
     onPermissionGranted: () -> Unit,
 ) {
     val context = LocalContext.current
-    var granted by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, requiredAudioPermission()) ==
-                PackageManager.PERMISSION_GRANTED
-        )
-    }
+    var granted by remember { mutableStateOf(hasAudioPermission(context)) }
+
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
@@ -225,13 +235,24 @@ private fun AppRoot(
         if (audioOk) onPermissionGranted()
     }
 
-    LaunchedEffect(Unit) {
-        if (!granted) {
-            launcher.launch(requiredPermissions())
+    // доступ могли выдать в настройках системы: при возврате в приложение
+    // перечитываем состояние и библиотеку
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val now = hasAudioPermission(context)
+                if (now && !granted) onPermissionGranted()
+                granted = now
+            }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    if (granted) {
+    // приложение доступно и без разрешения: системный запрос показываем
+    // только по кнопке баннера, сам не выскакиваем при каждом запуске
+    Box(Modifier.fillMaxSize()) {
         AppNav(
             vm = vm,
             themeMode = themeMode,
@@ -250,20 +271,29 @@ private fun AppRoot(
             onSetClarity = onSetClarity,
             skipSilence = skipSilence,
             onSetSkipSilence = onSetSkipSilence,
-        )
-    } else {
-        PermissionScreen(
-            onRequest = { launcher.launch(requiredPermissions()) },
-            onOpenSettings = {
-                context.startActivity(
-                    Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.fromParts("package", context.packageName, null),
+            accessBanner = {
+                if (!granted) {
+                    AccessBanner(
+                        onRequest = { launcher.launch(requiredPermissions()) },
+                        onOpenSettings = ::openAppSettings,
                     )
-                )
+                }
             },
         )
     }
+}
+
+private fun hasAudioPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, requiredAudioPermission()) ==
+        PackageManager.PERMISSION_GRANTED
+
+private fun openAppSettings(context: Context) {
+    context.startActivity(
+        Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", context.packageName, null),
+        )
+    )
 }
 
 private fun requiredAudioPermission(): String =
@@ -280,64 +310,89 @@ private fun requiredPermissions(): Array<String> =
         arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
-/* ==================== экран без разрешения ==================== */
+/* ==================== баннер «нет доступа» ==================== */
 
+/**
+ * Карточка поверх библиотеки, когда доступ к музыке не выдан. Приложение
+ * при этом остаётся полностью доступным: библиотека пустая, всё остальное
+ * работает. Системный диалог — только по кнопке «Разрешить доступ».
+ */
 @Composable
-private fun PermissionScreen(onRequest: () -> Unit, onOpenSettings: () -> Unit) {
+private fun AccessBanner(onRequest: () -> Unit, onOpenSettings: (Context) -> Unit) {
     val fs = Fs.c
     val s = LocalStrings.current
-    Column(
+    val context = LocalContext.current
+    var dismissed by rememberSaveable { mutableStateOf(false) }
+    if (dismissed) return
+
+    Card(
         Modifier
-            .fillMaxSize()
-            .background(fs.bg)
-            .padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+            .statusBarsPadding()
+            .padding(top = 64.dp, start = 16.dp, end = 16.dp)
+            .fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = fs.surf2),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
     ) {
-        Icon(
-            FsIcons.Folder,
-            contentDescription = null,
-            tint = fs.on3,
-            modifier = Modifier.size(44.dp),
-        )
-        Text(
-            s.needAccess,
-            Modifier.padding(top = 14.dp),
-            color = fs.on,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.W800,
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            s.permText,
-            Modifier.padding(top = 8.dp),
-            color = fs.on2,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.W600,
-            textAlign = TextAlign.Center,
-        )
-        Button(
-            onClick = onRequest,
-            modifier = Modifier.padding(top = 22.dp),
-            shape = RoundedCornerShape(22.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = fs.primary,
-                contentColor = fs.onAccent,
-            ),
-        ) {
-            Icon(Icons.Filled.GraphicEq, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text("  " + s.allowAccess, fontWeight = FontWeight.W800)
-        }
-        Text(
-            s.permHint,
-            Modifier.padding(top = 16.dp),
-            color = fs.on3,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.W600,
-            textAlign = TextAlign.Center,
-        )
-        androidx.compose.material3.TextButton(onClick = onOpenSettings) {
-            Text(s.openSettings, color = fs.accent, fontWeight = FontWeight.W800)
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    FsIcons.Folder,
+                    contentDescription = null,
+                    tint = fs.on3,
+                    modifier = Modifier.size(26.dp),
+                )
+                Text(
+                    s.needAccess,
+                    Modifier
+                        .padding(start = 10.dp)
+                        .weight(1f),
+                    color = fs.on,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W800,
+                )
+                IconButton(onClick = { dismissed = true }) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = s.aboutClose,
+                        tint = fs.on3,
+                    )
+                }
+            }
+            Text(
+                s.permText,
+                Modifier.padding(top = 6.dp),
+                color = fs.on2,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.W600,
+            )
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
+                Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Button(
+                    onClick = onRequest,
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = fs.primary,
+                        contentColor = fs.onAccent,
+                    ),
+                ) {
+                    Icon(Icons.Filled.GraphicEq, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Text("  " + s.allowAccess, fontWeight = FontWeight.W800)
+                }
+                TextButton(onClick = { onOpenSettings(context) }) {
+                    Text(s.openSettings, color = fs.accent, fontWeight = FontWeight.W800)
+                }
+            }
+            Text(
+                s.permHint,
+                Modifier.padding(top = 10.dp),
+                color = fs.on3,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.W600,
+            )
         }
     }
 }

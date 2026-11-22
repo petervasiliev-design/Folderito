@@ -36,52 +36,59 @@ class MusicRepository(private val context: Context) {
             MediaStore.Audio.Media.DATA,
             MediaStore.Audio.Media.DISPLAY_NAME,
         )
-        context.contentResolver.query(
-            collection,
-            projection,
-            "${MediaStore.Audio.Media.DURATION} > ?",
-            arrayOf("0"),
-            null,
-        )?.use { c ->
-            val iId = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val iTitle = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val iArtist = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val iAlbum = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-            val iAlbumId = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-            val iDur = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val iData = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val iName = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
-            while (c.moveToNext()) {
-                val path = c.getString(iData) ?: continue
-                if (path.isBlank() || !path.contains('/')) continue
-                val fileName = c.getString(iName)
-                val title = c.getString(iTitle)
-                    ?.takeIf { it.isNotBlank() }
-                    ?: fileName?.substringBeforeLast('.')?.takeIf { it.isNotBlank() }
-                    ?: ""
-                // локализуемые подписи («Неизвестный исполнитель» и т.п.)
-                // подставляются на отображении из словаря
-                val artist = c.getString(iArtist)
-                    ?.takeIf { it.isNotBlank() && it != "<unknown>" }
-                    ?: ""
-                val album = c.getString(iAlbum)
-                    ?.takeIf { it.isNotBlank() && it != "<unknown>" }
-                    ?: ""
-                // MediaStore бывает не в курсе удалённых файлов: помечаем «битые»,
-                // они остаются видны в библиотеке, но не играются (PlayerConnection)
-                val missing = !File(path).exists()
-                tracks += Track(
-                    id = c.getLong(iId),
-                    title = title,
-                    artist = artist,
-                    album = album,
-                    durationMs = c.getLong(iDur),
-                    path = path,
-                    folderPath = path.substringBeforeLast('/'),
-                    albumId = c.getLong(iAlbumId),
-                    missing = missing,
-                )
+        try {
+            context.contentResolver.query(
+                collection,
+                projection,
+                "${MediaStore.Audio.Media.DURATION} > ?",
+                arrayOf("0"),
+                null,
+            )?.use { c ->
+                val iId = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val iTitle = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                val iArtist = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                val iAlbum = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+                val iAlbumId = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+                val iDur = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                val iData = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                val iName = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+                while (c.moveToNext()) {
+                    val path = c.getString(iData) ?: continue
+                    if (path.isBlank() || !path.contains('/')) continue
+                    val fileName = c.getString(iName)
+                    val title = c.getString(iTitle)
+                        ?.takeIf { it.isNotBlank() }
+                        ?: fileName?.substringBeforeLast('.')?.takeIf { it.isNotBlank() }
+                        ?: ""
+                    // локализуемые подписи («Неизвестный исполнитель» и т.п.)
+                    // подставляются на отображении из словаря
+                    val artist = c.getString(iArtist)
+                        ?.takeIf { it.isNotBlank() && it != "<unknown>" }
+                        ?: ""
+                    val album = c.getString(iAlbum)
+                        ?.takeIf { it.isNotBlank() && it != "<unknown>" }
+                        ?: ""
+                    // MediaStore бывает не в курсе удалённых файлов: помечаем «битые»,
+                    // они остаются видны в библиотеке, но не играются (PlayerConnection)
+                    val missing = !File(path).exists()
+                    tracks += Track(
+                        id = c.getLong(iId),
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        durationMs = c.getLong(iDur),
+                        path = path,
+                        folderPath = path.substringBeforeLast('/'),
+                        albumId = c.getLong(iAlbumId),
+                        missing = missing,
+                    )
+                }
             }
+        } catch (_: SecurityException) {
+            // доступ к музыке не выдан: остаёмся с пустой библиотекой —
+            // приложение продолжает работать, баннер предложит включить доступ
+        } catch (_: Exception) {
+            // прочий сбой MediaStore — тоже пустая библиотека вместо падения
         }
 
         val sorted = tracks.sortedWith { a, b -> collator.compare(a.title, b.title) }

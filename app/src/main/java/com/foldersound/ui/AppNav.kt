@@ -10,7 +10,11 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -55,6 +59,7 @@ fun AppNav(
     onSetClarity: (Boolean) -> Unit,
     skipSilence: Boolean,
     onSetSkipSilence: (Boolean) -> Unit,
+    accessBanner: @Composable () -> Unit = {},
 ) {
     val stack = remember { mutableStateListOf<Screen>(Screen.Library) }
     val current = stack.last()
@@ -103,18 +108,21 @@ fun AppNav(
         label = "nav",
     ) { screen ->
         when (screen) {
-            Screen.Library -> LibraryScreen(
-                vm = vm,
-                themeMode = themeMode,
-                onSetTheme = onSetTheme,
-                skinId = skinId,
-                langMode = langMode,
-                onSetLang = onSetLang,
-                onOpenPlayer = { push(Screen.Player) },
-                onOpenEq = { push(Screen.Eq) },
-                onOpenSleepTimer = { push(Screen.Sleep) },
-                onOpenSettings = { push(Screen.Settings) },
-            )
+            Screen.Library -> Box(Modifier.fillMaxSize()) {
+                LibraryScreen(
+                    vm = vm,
+                    themeMode = themeMode,
+                    onSetTheme = onSetTheme,
+                    skinId = skinId,
+                    langMode = langMode,
+                    onSetLang = onSetLang,
+                    onOpenPlayer = { push(Screen.Player) },
+                    onOpenEq = { push(Screen.Eq) },
+                    onOpenSleepTimer = { push(Screen.Sleep) },
+                    onOpenSettings = { push(Screen.Settings) },
+                )
+                Box(Modifier.align(Alignment.TopCenter)) { accessBanner() }
+            }
             Screen.Sleep -> com.foldersound.ui.sleep.SleepTimerScreen(
                 onBack = { pop() },
             )
