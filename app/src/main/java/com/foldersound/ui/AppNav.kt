@@ -70,11 +70,12 @@ fun AppNav(
     val tourSteps = remember(s) {
         listOf(
             com.foldersound.ui.tour.TourStep(null, s.tour1Title, s.tour1Text),
+            com.foldersound.ui.tour.TourStep(null, s.tourFavoritesTitle, s.tourFavoritesText),
+            com.foldersound.ui.tour.TourStep(null, s.tourDoubleTapTitle, s.tourDoubleTapText),
             com.foldersound.ui.tour.TourStep("lib.search", s.search, s.searchDesc),
-            com.foldersound.ui.tour.TourStep("lib.collapse", s.collapseAllFolders, s.collapseAllDesc),
-            com.foldersound.ui.tour.TourStep("lib.clear", s.clearAll, s.clearAllDesc),
+            com.foldersound.ui.tour.TourStep("lib.collapse", s.collapseAllFolders, s.tourCollapseText),
+            com.foldersound.ui.tour.TourStep("lib.clear", s.clearAll, s.tourClearText),
             com.foldersound.ui.tour.TourStep("lib.toPlayer", s.toPlayer, s.tourToPlayerDesc),
-            com.foldersound.ui.tour.TourStep(null, s.tourGesturesTitle, s.tourGesturesText),
             com.foldersound.ui.tour.TourStep(null, s.tourTryTitle, s.tourTryText),
         )
     }
