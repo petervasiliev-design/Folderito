@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -39,10 +41,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -75,12 +79,26 @@ fun Modifier.tourTarget(key: String): Modifier = composed {
 
 /* ==================== состояние тура ==================== */
 
-/** Шаг тура. [targetKey] = null — пузырь по центру, без прожектора. */
+/** Шаг тура. [targetKey] = null — пузырь по центру, без прожектора.
+ *  [picts] — пиктограммы над текстом: то, о чём идёт речь (кнопка, чекбокс, звезда). */
 data class TourStep(
     val targetKey: String? = null,
     val title: String,
     val text: String,
+    val picts: List<TourPict> = emptyList(),
 )
+
+/** Пиктограмма в пузыре тура. */
+sealed class TourPict {
+    /** Иконка приложения (папка, знак трека); [accent] — подсветить акцентом (звезда). */
+    data class Icon(val vector: ImageVector, val accent: Boolean = false) : TourPict()
+
+    /** Кнопка: залитый круг + белая иконка, как круглые кнопки приложения. */
+    data class Btn(val vector: ImageVector) : TourPict()
+
+    /** Чекбокс строки (скруглённый квадратик) — по нему долгий тап выделения. */
+    data object Check : TourPict()
+}
 
 /** Состояние обхода шагов: старт из шторки, вперёд-назад, досрочное завершение. */
 class TourState {
@@ -217,6 +235,18 @@ fun TourOverlay(state: TourState, modifier: Modifier = Modifier) {
                             )
                         }
                     }
+                    // пиктограммы: то, о чём идёт речь в шаге
+                    if (step.picts.isNotEmpty()) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            step.picts.forEach { TourPictView(it) }
+                        }
+                    }
                     Text(
                         step.text,
                         Modifier
@@ -271,3 +301,40 @@ private fun Modifier.clickableNoRipple(enabled: Boolean = true, onClick: () -> U
             onClick = onClick,
         )
     }
+
+/* ==================== пиктограммы ==================== */
+
+/** Отрисовка одной пиктограммы шага тура. */
+@Composable
+private fun TourPictView(p: TourPict) {
+    val fs = Fs.c
+    when (p) {
+        is TourPict.Icon -> Icon(
+            p.vector,
+            contentDescription = null,
+            tint = if (p.accent) fs.accent else fs.on2,
+            modifier = Modifier.size(26.dp),
+        )
+        is TourPict.Btn -> Box(
+            Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(Brush.linearGradient(listOf(fs.fabGradStart, fs.primary))),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(p.vector, contentDescription = null, tint = fs.onAccent, modifier = Modifier.size(20.dp))
+        }
+        TourPict.Check -> Box(
+            Modifier.size(38.dp, 30.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            // скруглённый квадратик чекбокса строки (TriCheck в состоянии Off)
+            Box(
+                Modifier
+                    .size(21.dp)
+                    .clip(RoundedCornerShape(7.dp))
+                    .border(2.dp, fs.on2, RoundedCornerShape(7.dp)),
+            )
+        }
+    }
+}
