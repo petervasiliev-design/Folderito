@@ -64,6 +64,22 @@ fun AppNav(
     val stack = remember { mutableStateListOf<Screen>(Screen.Library) }
     val current = stack.last()
 
+    // интерактивный обзор возможностей: старт из шторки, пузыри поверх живого UI
+    val tour = remember { com.foldersound.ui.tour.TourState() }
+    val s = com.foldersound.ui.i18n.LocalStrings.current
+    val tourSteps = remember(s) {
+        listOf(
+            com.foldersound.ui.tour.TourStep(null, s.tour1Title, s.tour1Text),
+            com.foldersound.ui.tour.TourStep("lib.search", s.search, s.searchDesc),
+            com.foldersound.ui.tour.TourStep("lib.collapse", s.collapseAllFolders, s.collapseAllDesc),
+            com.foldersound.ui.tour.TourStep("lib.clear", s.clearAll, s.clearAllDesc),
+            com.foldersound.ui.tour.TourStep("lib.toPlayer", s.toPlayer, s.tourToPlayerDesc),
+            com.foldersound.ui.tour.TourStep(null, s.tourGesturesTitle, s.tourGesturesText),
+            com.foldersound.ui.tour.TourStep(null, s.tourTryTitle, s.tourTryText),
+        )
+    }
+    BackHandler(enabled = tour.active) { tour.stop() }
+
     val connection = vm.connection
     val lib by vm.library.collectAsStateWithLifecycle()
     val currentMediaId by connection.currentMediaId.collectAsStateWithLifecycle()
@@ -90,7 +106,8 @@ fun AppNav(
 
     BackHandler(enabled = stack.size > 1) { pop() }
 
-    AnimatedContent(
+    Box(Modifier.fillMaxSize()) {
+        AnimatedContent(
         targetState = current,
         transitionSpec = {
             val anim = tween<IntOffset>(420)
@@ -120,6 +137,7 @@ fun AppNav(
                     onOpenEq = { push(Screen.Eq) },
                     onOpenSleepTimer = { push(Screen.Sleep) },
                     onOpenSettings = { push(Screen.Settings) },
+                    onOpenTour = { tour.start(tourSteps) },
                 )
                 Box(Modifier.align(Alignment.TopCenter)) { accessBanner() }
             }
@@ -171,5 +189,9 @@ fun AppNav(
                 fromPlayer = stack.any { it == Screen.Player },
             )
         }
+        }
+
+        // тур поверх всего: затемнение-«прожектор» + пузырь с текстом
+        com.foldersound.ui.tour.TourOverlay(tour)
     }
 }

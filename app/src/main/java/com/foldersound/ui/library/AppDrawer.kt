@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
@@ -82,6 +83,7 @@ fun AppDrawer(
     onOpenEq: () -> Unit,
     onOpenSleepTimer: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenTour: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val fs = Fs.c
@@ -197,6 +199,13 @@ fun AppDrawer(
             icon = Icons.Filled.Settings,
             label = s.settings,
             onClick = onOpenSettings,
+        )
+
+        // интерактивный обзор возможностей (тур по экранам)
+        ActionRow(
+            icon = Icons.Filled.School,
+            label = s.tourStart,
+            onClick = onOpenTour,
         )
 
         // выбор языка интерфейса — перед темой

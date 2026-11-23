@@ -114,6 +114,7 @@ import com.foldersound.ui.common.horizontalSwipes
 import com.foldersound.ui.common.nestLine
 import com.foldersound.ui.common.rememberNestMetrics
 import com.foldersound.ui.theme.Fs
+import com.foldersound.ui.tour.tourTarget
 import kotlinx.coroutines.delay
 
 /* ==================== строки дерева ==================== */
@@ -255,6 +256,7 @@ fun LibraryScreen(
     onOpenEq: () -> Unit,
     onOpenSleepTimer: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenTour: () -> Unit = {},
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
@@ -429,6 +431,10 @@ fun LibraryScreen(
                     drawerOpen = false
                     onOpenSettings()
                 },
+                onOpenTour = {
+                    drawerOpen = false
+                    onOpenTour()
+                },
             )
         }
 
@@ -529,7 +535,12 @@ private fun Header(
     var confirmClear by remember { mutableStateOf(false) }
     Column(Modifier.padding(start = 6.dp, end = 10.dp, top = 10.dp, bottom = 12.dp)) {
         Row(verticalAlignment = Alignment.Top) {
-            IconBtn(Icons.Filled.Menu, s.menu, onOpenMenu)
+            IconBtn(
+                Icons.Filled.Menu,
+                s.menu,
+                onOpenMenu,
+                modifier = Modifier.tourTarget("lib.menu"),
+            )
             Column(Modifier.weight(1f)) {
                 Text(
                     "Folderito",
@@ -570,6 +581,7 @@ private fun Header(
                 Icons.Filled.Search,
                 s.search,
                 onOpenSearch,
+                modifier = Modifier.tourTarget("lib.search"),
                 hintTitle = s.search,
                 hintDesc = s.searchDesc,
             )
@@ -577,6 +589,7 @@ private fun Header(
                 Icons.Filled.UnfoldLess,
                 s.collapseAllFolders,
                 onCollapseAll,
+                modifier = Modifier.tourTarget("lib.collapse"),
                 hintTitle = s.collapseAllFolders,
                 hintDesc = s.collapseAllDesc,
             )
@@ -584,6 +597,7 @@ private fun Header(
                 Icons.Filled.Cancel,
                 s.clearAll,
                 onClick = { confirmClear = true },
+                modifier = Modifier.tourTarget("lib.clear"),
                 hintTitle = s.clearAll,
                 hintDesc = s.clearAllDesc,
             )
@@ -592,6 +606,7 @@ private fun Header(
                 Icons.AutoMirrored.Filled.ArrowForward,
                 s.toPlayer,
                 onOpenPlayer,
+                modifier = Modifier.tourTarget("lib.toPlayer"),
                 tint = if (canGoToPlayer) fs.accent else fs.on3,
             )
         }

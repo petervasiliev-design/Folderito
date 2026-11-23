@@ -163,6 +163,19 @@ data class FsStrings(
     val aboutSource: String,
     val aboutPrivacy: String,
     val aboutClose: String,
+    // ==================== тур ====================
+    val tourStart: String,
+    val tourSkip: String,
+    val tourBack: String,
+    val tourNext: String,
+    val tourDone: String,
+    val tour1Title: String,
+    val tour1Text: String,
+    val tourToPlayerDesc: String,
+    val tourGesturesTitle: String,
+    val tourGesturesText: String,
+    val tourTryTitle: String,
+    val tourTryText: String,
 ) {
     /** Словоформы по правилам языка. */
     fun plural(n: Int, p: Plurals): String {
@@ -326,6 +339,18 @@ private val RuStrings = FsStrings(
     aboutSource = "Исходный код на GitHub",
     aboutPrivacy = "Политика конфиденциальности",
     aboutClose = "Закрыть",
+    tourStart = "Обзор возможностей",
+    tourSkip = "Пропустить",
+    tourBack = "Назад",
+    tourNext = "Дальше",
+    tourDone = "Готово",
+    tour1Title = "Музыка — папками",
+    tour1Text = "Folderito показывает библиотеку как дерево папок с телефона. Тап по папке раскрывает её, а музыкальные ветки выделены цветом.",
+    tourToPlayerDesc = "Открывает плеер. Кнопка активна, когда что-то выделено или уже играет.",
+    tourGesturesTitle = "Долгие нажатия",
+    tourGesturesText = "Удержание 2 с на папке — меню «в избранное / спрятать». Удержание на круглой галочке — выделение папки или трека. Двойной тап по треку — играть его папку.",
+    tourTryTitle = "Попробуйте на демо-папках",
+    tourTryText = "В дереве есть раздел «Тур»: спрячьте одну папку, другую добавьте в избранное, выделите треки — и посмотрите, как выглядят пустые и битые файлы.",
 )
 
 private val EnStrings = FsStrings(
@@ -464,6 +489,18 @@ private val EnStrings = FsStrings(
     aboutSource = "Source code on GitHub",
     aboutPrivacy = "Privacy policy",
     aboutClose = "Close",
+    tourStart = "Feature tour",
+    tourSkip = "Skip",
+    tourBack = "Back",
+    tourNext = "Next",
+    tourDone = "Done",
+    tour1Title = "Music as folders",
+    tour1Text = "Folderito shows your library as the folder tree on your phone. Tap a folder to open it; music branches are highlighted with color.",
+    tourToPlayerDesc = "Opens the player. The button is active when something is selected or already playing.",
+    tourGesturesTitle = "Long presses",
+    tourGesturesText = "Hold a folder for 2 s for the menu “favorite / hide”. Hold the round checkmark to select a folder or track. Double-tap a track to play its folder.",
+    tourTryTitle = "Try it on the demo folders",
+    tourTryText = "The tree contains a “Tour” section: hide one folder, add another to favorites, select tracks — and see how empty and broken files look.",
 )
 
 private val DeStrings = FsStrings(
@@ -602,6 +639,18 @@ private val DeStrings = FsStrings(
     aboutSource = "Quellcode auf GitHub",
     aboutPrivacy = "Datenschutzerklärung",
     aboutClose = "Schließen",
+    tourStart = "Funktionen entdecken",
+    tourSkip = "Überspringen",
+    tourBack = "Zurück",
+    tourNext = "Weiter",
+    tourDone = "Fertig",
+    tour1Title = "Musik als Ordner",
+    tour1Text = "Folderito zeigt die Mediathek als Ordnerbaum vom Telefon. Ein Tipp öffnet den Ordner, Musikzweige sind farbig hervorgehoben.",
+    tourToPlayerDesc = "Öffnet den Spieler. Aktiv, wenn etwas ausgewählt ist oder schon spielt.",
+    tourGesturesTitle = "Langes Drücken",
+    tourGesturesText = "Ordner 2 s halten — Menü „Favorit / ausblenden“. Das runde Häkchen halten — Ordner oder Titel auswählen. Doppelklick auf einen Titel — seinen Ordner spielen.",
+    tourTryTitle = "Probieren Sie es an den Demo-Ordnern",
+    tourTryText = "Im Baum gibt es den Zweig „Tour“: einen Ordner ausblenden, einen zu den Favoriten hinzufügen, Titel auswählen — und sehen, wie leere und beschädigte Dateien aussehen.",
 )
 
 fun stringsFor(langCode: String): FsStrings = when (langCode) {
