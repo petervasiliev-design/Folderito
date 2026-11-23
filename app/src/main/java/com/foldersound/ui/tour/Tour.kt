@@ -182,11 +182,11 @@ fun TourOverlay(state: TourState, modifier: Modifier = Modifier) {
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 22.dp)
+                        .padding(horizontal = 16.dp)
                         .clip(RoundedCornerShape(18.dp))
                         .background(fs.surf2)
                         .border(1.dp, fs.outline, RoundedCornerShape(18.dp))
-                        .padding(start = 18.dp, end = 18.dp, top = 14.dp, bottom = 10.dp),
+                        .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 14.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -199,51 +199,51 @@ fun TourOverlay(state: TourState, modifier: Modifier = Modifier) {
                             step.title,
                             Modifier.weight(1f).padding(start = 10.dp),
                             color = fs.on,
-                            fontSize = 16.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.W800,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
+                        // «Закрыть» в правом верхнем углу — подальше от «Дальше»
+                        if (state.index < steps.size - 1) {
+                            Text(
+                                s.tourSkip,
+                                Modifier
+                                    .padding(start = 12.dp)
+                                    .clickableNoRipple { state.stop() },
+                                color = fs.on3,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.W700,
+                            )
+                        }
                     }
                     Text(
                         step.text,
                         Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = 10.dp),
                         color = fs.on2,
-                        fontSize = 13.5.sp,
+                        fontSize = 14.5.sp,
                         fontWeight = FontWeight.W600,
                     )
-                    if (state.index < steps.size - 1) {
-                        Text(
-                            s.tourSkip,
-                            Modifier
-                                .align(Alignment.End)
-                                .padding(top = 8.dp)
-                                .clickableNoRipple { state.stop() },
-                            color = fs.on3,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.W700,
-                        )
-                    }
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .padding(top = 12.dp, bottom = 2.dp),
+                            .padding(top = 14.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             s.tourBack,
                             Modifier.clickableNoRipple(enabled = state.index > 0) { state.back() },
                             color = if (state.index > 0) fs.on2 else fs.on3,
-                            fontSize = 14.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.W800,
                         )
                         Spacer(Modifier.weight(1f))
                         Text(
                             "${state.index + 1} / ${steps.size}",
                             color = fs.on3,
-                            fontSize = 12.sp,
+                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.W700,
                         )
                         Spacer(Modifier.weight(1f))
@@ -251,7 +251,7 @@ fun TourOverlay(state: TourState, modifier: Modifier = Modifier) {
                             if (state.index == steps.size - 1) s.tourDone else s.tourNext,
                             Modifier.clickableNoRipple { state.next() },
                             color = fs.accent,
-                            fontSize = 14.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.W800,
                         )
                     }
