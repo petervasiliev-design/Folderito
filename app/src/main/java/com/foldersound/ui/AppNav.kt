@@ -12,12 +12,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,13 +21,11 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.foldersound.ui.eq.EqualizerScreen
-import com.foldersound.ui.icons.FsIcons
 import com.foldersound.ui.i18n.AppLang
 import com.foldersound.ui.theme.ThemeMode
 import com.foldersound.ui.library.LibraryScreen
 import com.foldersound.ui.library.LibraryViewModel
 import com.foldersound.ui.player.PlayerScreen
-import com.foldersound.ui.tour.TourPict
 
 sealed class Screen(val depth: Int) {
     data object Library : Screen(0)
@@ -79,44 +71,27 @@ fun AppNav(
         listOf(
             com.foldersound.ui.tour.TourStep(
                 null, s.tour1Title, s.tour1Text,
-                picts = listOf(
-                    com.foldersound.ui.tour.TourPict.Icon(com.foldersound.ui.icons.FsIcons.Folder),
-                    com.foldersound.ui.tour.TourPict.Check,
-                ),
             ),
             com.foldersound.ui.tour.TourStep(
                 null, s.tourFavoritesTitle, s.tourFavoritesText,
-                picts = listOf(
-                    com.foldersound.ui.tour.TourPict.Icon(com.foldersound.ui.icons.FsIcons.Folder),
-                    com.foldersound.ui.tour.TourPict.Icon(Icons.Filled.Star, accent = true),
-                ),
             ),
             com.foldersound.ui.tour.TourStep(
                 null, s.tourDoubleTapTitle, s.tourDoubleTapText,
-                picts = listOf(com.foldersound.ui.tour.TourPict.Icon(com.foldersound.ui.icons.FsIcons.SoundWave)),
             ),
             com.foldersound.ui.tour.TourStep(
-                "lib.search", s.search, s.searchDesc,
-                picts = listOf(com.foldersound.ui.tour.TourPict.Btn(Icons.Filled.Search)),
+                "lib.search", s.search, s.tourSearchText,
             ),
             com.foldersound.ui.tour.TourStep(
                 "lib.collapse", s.collapseAllFolders, s.tourCollapseText,
-                picts = listOf(com.foldersound.ui.tour.TourPict.Btn(Icons.Filled.UnfoldLess)),
             ),
             com.foldersound.ui.tour.TourStep(
                 "lib.clear", s.clearAll, s.tourClearText,
-                picts = listOf(com.foldersound.ui.tour.TourPict.Btn(Icons.Filled.Cancel)),
             ),
             com.foldersound.ui.tour.TourStep(
                 "lib.toPlayer", s.toPlayer, s.tourToPlayerDesc,
-                picts = listOf(com.foldersound.ui.tour.TourPict.Btn(Icons.AutoMirrored.Filled.ArrowForward)),
             ),
             com.foldersound.ui.tour.TourStep(
                 null, s.tourTryTitle, s.tourTryText,
-                picts = listOf(
-                    com.foldersound.ui.tour.TourPict.Icon(com.foldersound.ui.icons.FsIcons.Folder),
-                    com.foldersound.ui.tour.TourPict.Icon(Icons.Filled.Star, accent = true),
-                ),
             ),
         )
     }

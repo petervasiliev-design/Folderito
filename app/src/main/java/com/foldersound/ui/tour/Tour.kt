@@ -6,7 +6,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -20,8 +19,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,16 +53,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.foldersound.ui.icons.FsIcons
 import com.foldersound.ui.i18n.LocalStrings
 import com.foldersound.ui.theme.Fs
 
@@ -80,24 +93,124 @@ fun Modifier.tourTarget(key: String): Modifier = composed {
 /* ==================== состояние тура ==================== */
 
 /** Шаг тура. [targetKey] = null — пузырь по центру, без прожектора.
- *  [picts] — пиктограммы над текстом: то, о чём идёт речь (кнопка, чекбокс, звезда). */
+ *  В [text] можно ставить маркеры в квадратных скобках:
+ *  пиктограммы [папка] [галочка] [звезда] [трек] [кн-меню] [кн-поиск] [кн-свернуть] [кн-очистить] [кн-плеер]
+ *  и перенос строки [новая строка] — текст после него выводится курсивом (примечание).
+ *  Неизвестные маркеры остаются обычным текстом. */
 data class TourStep(
     val targetKey: String? = null,
     val title: String,
     val text: String,
-    val picts: List<TourPict> = emptyList(),
 )
 
-/** Пиктограмма в пузыре тура. */
-sealed class TourPict {
-    /** Иконка приложения (папка, знак трека); [accent] — подсветить акцентом (звезда). */
-    data class Icon(val vector: ImageVector, val accent: Boolean = false) : TourPict()
+/* ==================== inline-пиктограммы в тексте ==================== */
 
-    /** Кнопка: залитый круг + белая иконка, как круглые кнопки приложения. */
-    data class Btn(val vector: ImageVector) : TourPict()
+internal const val TOK_FOLDER = "folder"
+internal const val TOK_CHECK = "check"
+internal const val TOK_STAR = "star"
+internal const val TOK_SONG = "song"
+internal const val TOK_NL = "nl"
+internal const val TOK_BTN_MENU = "btn-menu"
+internal const val TOK_BTN_SEARCH = "btn-search"
+internal const val TOK_BTN_COLLAPSE = "btn-collapse"
+internal const val TOK_BTN_CLEAR = "btn-clear"
+internal const val TOK_BTN_PLAYER = "btn-player"
 
-    /** Чекбокс строки (скруглённый квадратик) — по нему долгий тап выделения. */
-    data object Check : TourPict()
+/** Синонимы маркеров: RU (основные) + EN/DE. */
+private val TourPictAliases = mapOf(
+    "папка" to TOK_FOLDER, "folder" to TOK_FOLDER, "ordner" to TOK_FOLDER,
+    "галочка" to TOK_CHECK, "check" to TOK_CHECK, "haken" to TOK_CHECK,
+    "звезда" to TOK_STAR, "star" to TOK_STAR, "stern" to TOK_STAR,
+    "трек" to TOK_SONG, "song" to TOK_SONG, "titel" to TOK_SONG,
+    "новая строка" to TOK_NL, "new line" to TOK_NL, "neue zeile" to TOK_NL,
+    "кн-меню" to TOK_BTN_MENU, "btn-menu" to TOK_BTN_MENU,
+    "кн-поиск" to TOK_BTN_SEARCH, "btn-search" to TOK_BTN_SEARCH,
+    "кн-свернуть" to TOK_BTN_COLLAPSE, "btn-collapse" to TOK_BTN_COLLAPSE,
+    "кн-очистить" to TOK_BTN_CLEAR, "btn-clear" to TOK_BTN_CLEAR,
+    "кн-плеер" to TOK_BTN_PLAYER, "btn-player" to TOK_BTN_PLAYER,
+)
+
+private val TourPictRegex = Regex("""\[([A-Za-zА-Яа-яЁё -]+)]""")
+
+/** Кнопки шапки: маркер → иконка. */
+private val TourBtnVectors = mapOf(
+    TOK_BTN_MENU to Icons.Filled.Menu,
+    TOK_BTN_SEARCH to Icons.Filled.Search,
+    TOK_BTN_COLLAPSE to Icons.Filled.UnfoldLess,
+    TOK_BTN_CLEAR to Icons.Filled.Cancel,
+    TOK_BTN_PLAYER to Icons.AutoMirrored.Filled.ArrowForward,
+)
+
+/** Текст шага с маркерами → AnnotatedString: inline-слоты, переносы, курсив после переноса. */
+fun tourAnnotated(text: String): AnnotatedString = buildAnnotatedString {
+    var last = 0
+    var italicStart = -1
+    TourPictRegex.findAll(text).forEach { m ->
+        val raw = m.groupValues[1].lowercase()
+        if (raw == TOK_NL || TourPictAliases[raw] == TOK_NL) {
+            append(text.substring(last, m.range.first))
+            if (italicStart >= 0) {
+                addStyle(SpanStyle(fontStyle = FontStyle.Italic), italicStart, length)
+                italicStart = -1
+            }
+            append('\n')
+            italicStart = length // всё после переноса — примечание курсивом
+            last = m.range.last + 1
+        } else {
+            val token = TourPictAliases[raw] ?: return@forEach
+            append(text.substring(last, m.range.first))
+            if (italicStart >= 0) {
+                addStyle(SpanStyle(fontStyle = FontStyle.Italic), italicStart, length)
+                italicStart = length
+            }
+            appendInlineContent(token, "▪")
+            last = m.range.last + 1
+        }
+    }
+    append(text.substring(last))
+    if (italicStart >= 0) {
+        addStyle(SpanStyle(fontStyle = FontStyle.Italic), italicStart, length)
+    }
+}
+
+/** Карта inline-содержимого для всех известных маркеров-пиктограмм. */
+fun tourInlineContent(): Map<String, InlineTextContent> {
+    val map = mutableMapOf<String, InlineTextContent>()
+    TourPictAliases.values.filter { it != TOK_NL }.distinct().forEach { token ->
+        map[token] = InlineTextContent(
+            Placeholder(22.sp, 22.sp, PlaceholderVerticalAlign.TextCenter),
+        ) { TourInlineView(token) }
+    }
+    return map
+}
+
+@Composable
+private fun TourInlineView(token: String) {
+    val fs = Fs.c
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        when (token) {
+            TOK_FOLDER -> Icon(FsIcons.Folder, null, tint = fs.on2, modifier = Modifier.size(20.dp))
+            TOK_STAR -> Icon(Icons.Filled.Star, null, tint = fs.accent, modifier = Modifier.size(20.dp))
+            TOK_SONG -> Icon(FsIcons.SoundWave, null, tint = fs.on2, modifier = Modifier.size(20.dp))
+            TOK_CHECK -> Box(
+                Modifier
+                    .size(16.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .border(2.dp, fs.on2, RoundedCornerShape(5.dp)),
+            )
+            else -> TourBtnVectors[token]?.let { vector ->
+                Box(
+                    Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(fs.fabGradStart, fs.primary))),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(vector, null, tint = fs.onAccent, modifier = Modifier.size(13.dp))
+                }
+            }
+        }
+    }
 }
 
 /** Состояние обхода шагов: старт из шторки, вперёд-назад, досрочное завершение. */
@@ -235,26 +348,17 @@ fun TourOverlay(state: TourState, modifier: Modifier = Modifier) {
                             )
                         }
                     }
-                    // пиктограммы: то, о чём идёт речь в шаге
-                    if (step.picts.isNotEmpty()) {
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            step.picts.forEach { TourPictView(it) }
-                        }
-                    }
+                    // текст с inline-пиктограммами: маркеры [папка] [звезда] [кн-поиск] …
                     Text(
-                        step.text,
+                        tourAnnotated(step.text),
                         Modifier
                             .fillMaxWidth()
                             .padding(top = 10.dp),
                         color = fs.on2,
                         fontSize = 14.5.sp,
+                        lineHeight = 22.sp,
                         fontWeight = FontWeight.W600,
+                        inlineContent = tourInlineContent(),
                     )
                     Row(
                         Modifier
@@ -301,40 +405,3 @@ private fun Modifier.clickableNoRipple(enabled: Boolean = true, onClick: () -> U
             onClick = onClick,
         )
     }
-
-/* ==================== пиктограммы ==================== */
-
-/** Отрисовка одной пиктограммы шага тура. */
-@Composable
-private fun TourPictView(p: TourPict) {
-    val fs = Fs.c
-    when (p) {
-        is TourPict.Icon -> Icon(
-            p.vector,
-            contentDescription = null,
-            tint = if (p.accent) fs.accent else fs.on2,
-            modifier = Modifier.size(26.dp),
-        )
-        is TourPict.Btn -> Box(
-            Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(Brush.linearGradient(listOf(fs.fabGradStart, fs.primary))),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(p.vector, contentDescription = null, tint = fs.onAccent, modifier = Modifier.size(20.dp))
-        }
-        TourPict.Check -> Box(
-            Modifier.size(38.dp, 30.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            // скруглённый квадратик чекбокса строки (TriCheck в состоянии Off)
-            Box(
-                Modifier
-                    .size(21.dp)
-                    .clip(RoundedCornerShape(7.dp))
-                    .border(2.dp, fs.on2, RoundedCornerShape(7.dp)),
-            )
-        }
-    }
-}
