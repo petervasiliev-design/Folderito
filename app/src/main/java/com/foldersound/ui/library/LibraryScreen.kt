@@ -1321,7 +1321,7 @@ private fun FavoriteCard(
                     indication = null,
                     onClick = onOpenFolder,
                 )
-                .padding(horizontal = 4.dp, vertical = 8.dp),
+                .padding(horizontal = 4.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
