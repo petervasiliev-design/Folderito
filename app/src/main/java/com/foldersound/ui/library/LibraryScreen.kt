@@ -1138,9 +1138,9 @@ private fun FavoritesSection(
                 s.favorites.uppercase(),
                 Modifier.padding(start = 6.dp),
                 color = fs.on,
-                fontSize = 12.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.W800,
-                letterSpacing = 1.6.sp,
+                letterSpacing = 1.5.sp,
             )
             Box(
                 Modifier
