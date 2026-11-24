@@ -35,6 +35,9 @@ sealed class Screen(val depth: Int) {
     data object PlaybackSettings : Screen(2)
     data object Songs : Screen(2)
     data object Eq : Screen(3)
+
+    /** Экран папки из карусели избранного: только её дочерние папки и треки. */
+    data class FolderBrowser(val path: String) : Screen(1)
 }
 
 /**
@@ -155,6 +158,7 @@ fun AppNav(
                     onOpenSleepTimer = { push(Screen.Sleep) },
                     onOpenSettings = { push(Screen.Settings) },
                     onOpenTour = { tour.start(tourSteps) },
+                    onOpenFolderBrowser = { push(Screen.FolderBrowser(it)) },
                 )
                 Box(Modifier.align(Alignment.TopCenter)) { accessBanner() }
             }
@@ -200,6 +204,11 @@ fun AppNav(
                 onSetClarity = onSetClarity,
                 skipSilence = skipSilence,
                 onSetSkipSilence = onSetSkipSilence,
+            )
+            is Screen.FolderBrowser -> com.foldersound.ui.library.FolderBrowserScreen(
+                vm = vm,
+                folderPath = screen.path,
+                onBack = { pop() },
             )
             Screen.Eq -> EqualizerScreen(
                 onBack = { pop() },

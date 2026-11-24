@@ -263,6 +263,8 @@ fun LibraryScreen(
     onOpenSleepTimer: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTour: () -> Unit = {},
+    /** Открыть экран папки (из карточки карусели избранного). */
+    onOpenFolderBrowser: (String) -> Unit = {},
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
@@ -356,6 +358,7 @@ fun LibraryScreen(
                         currentId = currentMediaId?.toLongOrNull(),
                         isPlaying = isPlaying,
                         onFolderMenu = { menuFolder = it },
+                        onOpenFolderBrowser = onOpenFolderBrowser,
                     )
                 }
             }
@@ -893,6 +896,7 @@ private fun SearchResults(
                             inMusicBranch = segs.firstOrNull()?.let { StandardFolders.isStandard(it) } == true,
                             expandedNow = expanded.contains(row.node.path),
                             checkState = vm.folderCheckState(row.node),
+                            selectedCount = vm.folderSelectedCount(row.node),
                             onToggleSel = { vm.toggleFolderSelection(row.node) },
                             onToggleExpand = { vm.toggleFolder(row.node.path) },
                             query = query,
@@ -950,6 +954,7 @@ private fun TreeList(
     currentId: Long?,
     isPlaying: Boolean,
     onFolderMenu: (FolderNode) -> Unit,
+    onOpenFolderBrowser: (String) -> Unit = {},
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
@@ -973,6 +978,7 @@ private fun TreeList(
             query = "",
             s = s,
             onFolderMenu = onFolderMenu,
+            onOpenFolderBrowser = onOpenFolderBrowser,
         )
     }
 }
@@ -994,6 +1000,7 @@ private fun LazyListScope.treeRows(
     query: String,
     s: FsStrings,
     onFolderMenu: (FolderNode) -> Unit,
+    onOpenFolderBrowser: (String) -> Unit = {},
 ) {
     items(rows, key = {
         when (it) {
@@ -1015,6 +1022,7 @@ private fun LazyListScope.treeRows(
                 expanded = expanded,
                 vm = vm,
                 onFolderMenu = onFolderMenu,
+                onOpenFolder = onOpenFolderBrowser,
             )
             is Row.FolderRow -> {
                 val segs = lib.relativeSegments(row.node.path)
@@ -1027,6 +1035,7 @@ private fun LazyListScope.treeRows(
                     expandedNow = expanded.contains(row.node.path),
                     checkState = vm.folderCheckState(row.node),
                     isFavorite = row.node.path in favorites,
+                    selectedCount = vm.folderSelectedCount(row.node),
                     onToggleSel = { vm.toggleFolderSelection(row.node) },
                     onToggleExpand = { vm.toggleFolder(row.node.path) },
                     onLongPress = { onFolderMenu(row.node) },
@@ -1093,6 +1102,7 @@ private fun FavoritesSection(
     expanded: Set<String>,
     vm: LibraryViewModel,
     onFolderMenu: (FolderNode) -> Unit,
+    onOpenFolder: (String) -> Unit = {},
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
@@ -1146,6 +1156,7 @@ private fun FavoritesSection(
                 FavoriteCard(
                     node = node,
                     expandedNow = expanded.contains(node.path),
+                    onOpenFolder = { onOpenFolder(node.path) },
                     onLongPress = { onFolderMenu(node) },
                     modifier = Modifier.fillParentMaxWidth(0.85f),
                 )
@@ -1155,17 +1166,19 @@ private fun FavoritesSection(
 }
 
 /** Карточка избранной папки: чип-иконка, звезда-бейдж, счётчики, «Открыть папку».
- *  Тапов нет — поведение нажатия будет переделано позже; удержание 2 с — меню. */
+ *  Тап — открыть экран папки; удержание 2 с — меню «избранное / спрятать». */
 @Composable
 private fun FavoriteCard(
     node: FolderNode,
     expandedNow: Boolean,
+    onOpenFolder: () -> Unit,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
     val view = LocalView.current
+    val interaction = remember { MutableInteractionSource() }
     val isAudiobooks = node.name.equals("Audiobooks", ignoreCase = true)
     val isMusic = node.name.equals("Music", ignoreCase = true)
     val chipBrush = when {
@@ -1195,6 +1208,7 @@ private fun FavoriteCard(
                 view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                 onLongPress()
             }
+            .clickable(interactionSource = interaction, indication = null, onClick = onOpenFolder)
             .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.Top) {
@@ -1274,6 +1288,121 @@ private fun FavoriteCard(
     }
 }
 
+/* ==================== экран папки (открытие из карусели) ==================== */
+
+/**
+ * Экран папки из карусели избранного: на весь экран — дерево только её дочерних
+ * папок и треков (аналог стартового экрана). Стрелка «Назад» вверху возвращает
+ * к основному экрану папок. Выбранное в этом экране пишется счётчиком на контроле
+ * самой папки (и в основном списке тоже).
+ */
+@Composable
+fun FolderBrowserScreen(
+    vm: LibraryViewModel,
+    folderPath: String,
+    onBack: () -> Unit,
+) {
+    val fs = Fs.c
+    val s = LocalStrings.current
+    val lib by vm.visibleLibrary.collectAsStateWithLifecycle()
+    val expanded by vm.expanded.collectAsStateWithLifecycle()
+    val selected by vm.selected.collectAsStateWithLifecycle()
+    val favorites by vm.favorites.collectAsStateWithLifecycle()
+    val currentMediaId by vm.connection.currentMediaId.collectAsStateWithLifecycle()
+    val isPlaying by vm.connection.isPlaying.collectAsStateWithLifecycle()
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    val node = lib?.root?.findByPath(folderPath)
+    var menuFolder by remember { mutableStateOf<FolderNode?>(null) }
+
+    // «назад» сначала снимает выделение, потом уходит с экрана
+    BackHandler(enabled = selected.isNotEmpty()) { vm.clearSelection() }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(fs.bg)
+    ) {
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+            // шапка: стрелка назад + имя папки и счётчики
+            Row(
+                Modifier.padding(start = 6.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconBtn(Icons.AutoMirrored.Filled.ArrowBack, s.backDesc, onBack)
+                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                    Text(
+                        node?.name ?: folderPath.substringAfterLast('/'),
+                        color = fs.on,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.W800,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    node?.let {
+                        Text(
+                            buildString {
+                                if (it.children.size > 0) {
+                                    append("${s.plural(it.children.size, s.pSubfolders)} · ")
+                                }
+                                append(s.plural(it.allTracks.size, s.pTracks))
+                            },
+                            color = fs.on2,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.W600,
+                        )
+                    }
+                }
+            }
+            when {
+                lib == null -> Centered { CircularProgressIndicator(color = fs.accent) }
+                node == null -> EmptyLibrary()
+                else -> {
+                    val rows = remember(lib, node, expanded, s) {
+                        flatten(node, expanded, 0, true, s.folders, s.tracks)
+                    }
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 40.dp + navBottom),
+                    ) {
+                        treeRows(
+                            rows = rows,
+                            lib = lib!!,
+                            expanded = expanded,
+                            selected = selected,
+                            favorites = favorites,
+                            vm = vm,
+                            currentId = currentMediaId?.toLongOrNull(),
+                            isPlaying = isPlaying,
+                            query = "",
+                            s = s,
+                            onFolderMenu = { menuFolder = it },
+                        )
+                    }
+                }
+            }
+        }
+
+        // меню папки (удержание 2 с): избранное / спрятать
+        menuFolder?.let { folder ->
+            FolderMenuDialog(
+                folderName = folder.name,
+                isFavorite = folder.path in favorites,
+                onToggleFavorite = {
+                    vm.toggleFavorite(folder.path)
+                    menuFolder = null
+                },
+                onHide = {
+                    vm.hideFolder(folder.path)
+                    menuFolder = null
+                    onBack()
+                },
+                onDismiss = { menuFolder = null },
+            )
+        }
+    }
+}
+
 /* ==================== папка ==================== */
 
 @Composable
@@ -1287,6 +1416,8 @@ private fun FolderRowView(
     checkState: CheckState,
     /** Папка в избранном — звезда справа, слева от стрелки раскрытия. */
     isFavorite: Boolean = false,
+    /** Сколько выбранных треков в поддереве — пишется на контроле папки. */
+    selectedCount: Int = 0,
     onToggleSel: () -> Unit,
     onToggleExpand: () -> Unit,
     /** Удержание 2 с — меню «избранное/спрятать»; null — жест выключен (поиск). */
@@ -1346,7 +1477,26 @@ private fun FolderRowView(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            TriCheck(state = checkState, modifier = Modifier.size(38.dp, 44.dp))
+            if (selectedCount > 0) {
+                // количество выбранных элементов пишется прямо на контроле папки
+                Box(
+                    Modifier
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(if (checkState == CheckState.On) fs.audiobooksGradStart else fs.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        if (selectedCount > 99) "99+" else selectedCount.toString(),
+                        color = Color.White,
+                        fontSize = if (selectedCount > 99) 10.sp else 13.sp,
+                        fontWeight = FontWeight.W800,
+                        maxLines = 1,
+                    )
+                }
+            } else {
+                TriCheck(state = checkState, modifier = Modifier.size(38.dp, 44.dp))
+            }
         }
         Icon(
             if (expandedNow) FsIcons.FolderOpen else FsIcons.Folder,

@@ -142,6 +142,13 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Сколько выбранных треков лежит в поддереве папки — для счётчика на контроле. */
+    fun folderSelectedCount(folder: FolderNode): Int {
+        val sel = selected.value
+        if (sel.isEmpty()) return 0
+        return folder.allTracks.count { sel.contains(it.id) }
+    }
+
     private fun setSelected(next: Set<Long>) {
         val prev = selected.value
         selected.value = next
