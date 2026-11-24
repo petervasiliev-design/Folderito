@@ -1258,14 +1258,14 @@ private fun FavoriteCard(
             Text(
                 s.openFolder,
                 Modifier.weight(1f),
-                color = fs.secondary,
+                color = fs.on2,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.W700,
+                fontWeight = FontWeight.W800,
             )
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = if (expandedNow) s.collapse else s.expand,
-                tint = fs.secondary,
+                tint = fs.on2,
                 modifier = Modifier
                     .size(20.dp)
                     .rotate(if (expandedNow) 90f else 0f),
