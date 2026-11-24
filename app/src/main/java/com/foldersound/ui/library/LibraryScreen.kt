@@ -841,9 +841,9 @@ private fun SearchResults(
                     Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
                 )
             }
-            // плоский список строк: найденные папки схлопнуты, развёрнутые — их поддеревья.
-            // Совпадение, чей предок — тоже совпадение и развёрнут, пропускается наверху:
-            // он уже виден внутри родителя (иначе LazyColumn получает дублирующийся ключ)
+            // плоский список строк: найденная папка всегда показывается своей плиткой;
+            // если она развёрнута — под ней видно её поддерево. Совпадение, чей предок —
+            // тоже совпадение и развёрнут, не дублируется (он уже виден внутри родителя)
             val folderRows = ArrayList<Row>(folderMatches.size)
             folderMatches.forEach { node ->
                 val hiddenInParent = folderMatches.any { other ->
@@ -851,10 +851,9 @@ private fun SearchResults(
                         node.path.startsWith(other.path + "/")
                 }
                 if (hiddenInParent) return@forEach
+                folderRows += Row.FolderRow(node, 0)
                 if (expanded.contains(node.path)) {
                     folderRows += flatten(node, expanded, 1, false, s.folders, s.tracks)
-                } else {
-                    folderRows += Row.FolderRow(node, 0)
                 }
             }
             items(folderRows.size, key = { i ->
