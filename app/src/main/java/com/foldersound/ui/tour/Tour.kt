@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -109,6 +110,7 @@ internal const val TOK_FOLDER = "folder"
 internal const val TOK_CHECK = "check"
 internal const val TOK_STAR = "star"
 internal const val TOK_SONG = "song"
+internal const val TOK_BULB = "bulb"
 internal const val TOK_NL = "nl"
 internal const val TOK_BTN_MENU = "btn-menu"
 internal const val TOK_BTN_SEARCH = "btn-search"
@@ -122,6 +124,7 @@ private val TourPictAliases = mapOf(
     "галочка" to TOK_CHECK, "check" to TOK_CHECK, "haken" to TOK_CHECK,
     "звезда" to TOK_STAR, "star" to TOK_STAR, "stern" to TOK_STAR,
     "трек" to TOK_SONG, "song" to TOK_SONG, "titel" to TOK_SONG,
+    "лампочка" to TOK_BULB, "bulb" to TOK_BULB, "lampe" to TOK_BULB,
     "новая строка" to TOK_NL, "new line" to TOK_NL, "neue zeile" to TOK_NL,
     "кн-меню" to TOK_BTN_MENU, "btn-menu" to TOK_BTN_MENU,
     "кн-поиск" to TOK_BTN_SEARCH, "btn-search" to TOK_BTN_SEARCH,
@@ -192,6 +195,7 @@ private fun TourInlineView(token: String) {
             TOK_FOLDER -> Icon(FsIcons.Folder, null, tint = fs.on2, modifier = Modifier.size(20.dp))
             TOK_STAR -> Icon(Icons.Filled.Star, null, tint = fs.accent, modifier = Modifier.size(20.dp))
             TOK_SONG -> Icon(FsIcons.SoundWave, null, tint = fs.on2, modifier = Modifier.size(20.dp))
+            TOK_BULB -> Icon(Icons.Filled.Lightbulb, null, tint = fs.accent, modifier = Modifier.size(20.dp))
             TOK_CHECK -> Box(
                 Modifier
                     .size(16.dp)
