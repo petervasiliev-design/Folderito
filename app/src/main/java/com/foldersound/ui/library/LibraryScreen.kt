@@ -381,7 +381,7 @@ fun LibraryScreen(
                     Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
-                        .padding(start = 12.dp, end = 12.dp, bottom = 16.dp)
+                        .padding(start = 12.dp, end = 12.dp, bottom = 28.dp)
                         .fillMaxWidth()
                 ) {
                     val selectedCount = selected.size
@@ -2085,13 +2085,14 @@ fun SelectionBar(
         // транспорт, как на странице плеера: назад / play-пауза / вперёд
         IconBtn(Icons.Filled.SkipPrevious, s.prevTrack, onPrev, size = 40.dp, iconSize = 22.dp)
         // единая кнопка: ▶ «Слушать выбранное» / ⏸ пауза-продолжение во время игры
+        // цвет — градиент плитки «Плейлисты»
         Box(
             Modifier
                 .padding(start = 4.dp)
                 .size(44.dp)
                 .shadow(8.dp, CircleShape)
                 .clip(CircleShape)
-                .background(Brush.linearGradient(listOf(fs.fabGradStart, fs.primary)))
+                .background(Brush.linearGradient(listOf(fs.standardGradStart, fs.standardGradEnd)))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
