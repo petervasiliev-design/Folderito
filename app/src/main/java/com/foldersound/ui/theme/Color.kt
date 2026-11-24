@@ -26,6 +26,9 @@ data class FsColors(
     val folderGradEnd: Color,
     val standardGradStart: Color,
     val standardGradEnd: Color,
+    // «золотой» чип Audiobooks на карточках избранного (одинаков во всех схемах)
+    val audiobooksGradStart: Color,
+    val audiobooksGradEnd: Color,
     val playlistGradStart: Color,
     val playlistGradEnd: Color,
     val fabGradStart: Color,
@@ -53,6 +56,8 @@ val DarkFsColors = FsColors(
     folderGradEnd = Color(0xFF8895A5),
     standardGradStart = Color(0xFFAF8D68),
     standardGradEnd = Color(0xFF896742),
+    audiobooksGradStart = Color(0xFFE3A94F),
+    audiobooksGradEnd = Color(0xFFC6872F),
     // плейлисты: тот же коричневый тон, что у музыкальных папок, чуть светлее
     playlistGradStart = Color(0xFFC2A17E),
     playlistGradEnd = Color(0xFFA28258),
@@ -81,6 +86,8 @@ val LightFsColors = FsColors(
     folderGradEnd = Color(0xFF8895A5),
     standardGradStart = Color(0xFFAF8D68),
     standardGradEnd = Color(0xFF896742),
+    audiobooksGradStart = Color(0xFFE3A94F),
+    audiobooksGradEnd = Color(0xFFC6872F),
     // плейлисты: тот же коричневый тон, что у музыкальных папок, чуть светлее
     playlistGradStart = Color(0xFFC2A17E),
     playlistGradEnd = Color(0xFFA28258),

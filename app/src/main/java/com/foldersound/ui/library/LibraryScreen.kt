@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
@@ -33,6 +34,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyListScope
@@ -42,6 +44,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
@@ -141,6 +145,9 @@ private sealed interface Row {
     /** Синтетическая папка «Плейлисты» — первая плитка корня. */
     data class PlaylistFolderRow(val playlistsCount: Int, val tracksCount: Int) : Row
     data class PlaylistRow(val playlist: Playlist, val depth: Int) : Row
+
+    /** Карусель карточек избранного (дизайн): папки листаются вбок. */
+    data class FavoritesCarouselRow(val folders: List<FolderNode>) : Row
 }
 
 private const val PLAYLISTS_KEY = "@playlists"
@@ -158,7 +165,6 @@ private fun buildRows(
     favorites: Set<String>,
     foldersLabel: String,
     tracksLabel: String,
-    favoritesLabel: String,
 ): List<Row> {
     val out = mutableListOf<Row>()
     val playlists = lib.playlists
@@ -184,15 +190,13 @@ private fun buildRows(
             }
         }
     }
-    // «Избранное» после «Плейлистов»: папки остаются и в основном дереве,
-    // поэтому всем их строкам добавляется суффикс ключа, чтобы не дублировать id
+    // «Избранное» — карусель карточек; развёрнутые папки показывают поддерево под ней
     if (favorites.isNotEmpty()) {
         val favNodes = favorites.mapNotNull { lib.root.findByPath(it) }
             .sortedBy { it.path.lowercase() }
         if (favNodes.isNotEmpty()) {
-            out += Row.Label(favoritesLabel)
+            out += Row.FavoritesCarouselRow(favNodes)
             favNodes.forEach { node ->
-                out += Row.FolderRow(node, depth = 0, keySuffix = "#fav")
                 if (expanded.contains(node.path)) {
                     flatten(node, expanded, 1, false, foldersLabel, tracksLabel).forEach { r ->
                         out += when (r) {
@@ -542,13 +546,24 @@ private fun Header(
                 modifier = Modifier.tourTarget("lib.menu"),
             )
             Column(Modifier.weight(1f)) {
-                Text(
-                    "Folderito",
-                    fontSize = 27.sp,
-                    fontWeight = FontWeight.W800,
-                    letterSpacing = (-0.4).sp,
-                    color = fs.on,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Folderito",
+                        fontSize = 27.sp,
+                        fontWeight = FontWeight.W800,
+                        letterSpacing = (-0.4).sp,
+                        color = fs.on,
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    // акцентная точка — фирменный знак после имени
+                    Box(
+                        Modifier
+                            .padding(top = 8.dp)
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(fs.accent2),
+                    )
+                }
                 Row(
                     Modifier.padding(top = 5.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -938,7 +953,7 @@ private fun TreeList(
     val s = LocalStrings.current
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val rows = remember(lib, expanded, favorites, s) {
-        buildRows(lib, expanded, favorites, s.folders, s.tracks, s.favorites)
+        buildRows(lib, expanded, favorites, s.folders, s.tracks)
     }
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -985,12 +1000,19 @@ private fun LazyListScope.treeRows(
             is Row.TrackRow -> "t${it.track.id}${it.keySuffix}"
             is Row.PlaylistFolderRow -> "f$PLAYLISTS_KEY"
             is Row.PlaylistRow -> "p${it.playlist.path}"
+            is Row.FavoritesCarouselRow -> "favcarousel"
         }
     }) { row ->
         when (row) {
-            is Row.Label -> SectionLabel(
+            is Row.Label -> SectionHeader(
                 row.text,
                 Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
+            )
+            is Row.FavoritesCarouselRow -> FavoritesSection(
+                folders = row.folders,
+                expanded = expanded,
+                vm = vm,
+                onFolderMenu = onFolderMenu,
             )
             is Row.FolderRow -> {
                 val segs = lib.relativeSegments(row.node.path)
@@ -1042,6 +1064,211 @@ private fun LazyListScope.treeRows(
                 onToggleSel = { vm.togglePlaylistSelection(row.playlist) },
                 onToggleExpand = { vm.toggleFolder(row.playlist.path) },
                 onPlay = { vm.playPlaylist(row.playlist) },
+            )
+        }
+    }
+}
+
+/* ==================== избранное: карусель карточек ==================== */
+
+/** Заголовок корневой секции («ВСЕ ПАПКИ») — капс, крупнее подписей секций. */
+@Composable
+private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text.uppercase(),
+        modifier,
+        color = Fs.c.on,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.W800,
+        letterSpacing = 1.5.sp,
+    )
+}
+
+/** «Избранное»: заголовок со звездой, счётчиком и «Листать» + карусель карточек. */
+@Composable
+private fun FavoritesSection(
+    folders: List<FolderNode>,
+    expanded: Set<String>,
+    vm: LibraryViewModel,
+    onFolderMenu: (FolderNode) -> Unit,
+) {
+    val fs = Fs.c
+    val s = LocalStrings.current
+    Column {
+        Row(
+            Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.Star,
+                contentDescription = null,
+                tint = fs.audiobooksGradStart,
+                modifier = Modifier.size(14.dp),
+            )
+            Text(
+                s.favorites.uppercase(),
+                Modifier.padding(start = 6.dp),
+                color = fs.on,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.W800,
+                letterSpacing = 1.6.sp,
+            )
+            Box(
+                Modifier
+                    .padding(start = 8.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(fs.surf2)
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+            ) {
+                Text(
+                    folders.size.toString(),
+                    color = fs.on2,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.W800,
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Text(
+                s.favSwipe,
+                color = fs.on3,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.W700,
+            )
+        }
+        LazyRow(
+            Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(folders, key = { "favcard${it.path}" }) { node ->
+                FavoriteCard(
+                    node = node,
+                    expandedNow = expanded.contains(node.path),
+                    onToggleExpand = { vm.toggleFolder(node.path) },
+                    onToggleFavorite = { vm.toggleFavorite(node.path) },
+                    onLongPress = { onFolderMenu(node) },
+                    modifier = Modifier.fillParentMaxWidth(0.85f),
+                )
+            }
+        }
+    }
+}
+
+/** Карточка избранной папки: чип-иконка, звезда-бейдж, счётчики, «Открыть папку». */
+@Composable
+private fun FavoriteCard(
+    node: FolderNode,
+    expandedNow: Boolean,
+    onToggleExpand: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onLongPress: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val fs = Fs.c
+    val s = LocalStrings.current
+    val view = LocalView.current
+    val interaction = remember { MutableInteractionSource() }
+    val isAudiobooks = node.name.equals("Audiobooks", ignoreCase = true)
+    val isMusic = node.name.equals("Music", ignoreCase = true)
+    val chipBrush = when {
+        isAudiobooks -> Brush.linearGradient(listOf(fs.audiobooksGradStart, fs.audiobooksGradEnd))
+        else -> Brush.linearGradient(listOf(fs.standardGradStart, fs.standardGradEnd))
+    }
+    val chipIcon = when {
+        isAudiobooks -> Icons.AutoMirrored.Filled.MenuBook
+        isMusic -> Icons.AutoMirrored.Filled.QueueMusic
+        else -> FsIcons.Folder
+    }
+    Column(
+        modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(fs.surf2)
+            .border(1.dp, fs.outline, RoundedCornerShape(20.dp))
+            // прежнее поведение: удержание 2 с — меню «избранное / спрятать»
+            .holdToggle(timeoutMs = 2_000) {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                onLongPress()
+            }
+            .clickable(interactionSource = interaction, indication = null, onClick = onToggleExpand)
+            .padding(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.Top) {
+            Box(
+                Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(chipBrush),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(chipIcon, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+            }
+            Spacer(Modifier.weight(1f))
+            // звезда-бейдж: тап — убрать из избранного (та же функция, что в меню)
+            Box(
+                Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(fs.surf)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onToggleFavorite,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.Star,
+                    contentDescription = s.removeFromFavorites,
+                    tint = fs.audiobooksGradStart,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+        Text(
+            node.name,
+            Modifier.padding(top = 14.dp),
+            color = fs.on,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.W800,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            buildString {
+                val subs = node.children.size
+                if (subs > 0) append("${s.plural(subs, s.pSubfolders)} · ")
+                append(s.plural(node.allTracks.size, s.pTracks))
+            },
+            Modifier.padding(top = 3.dp),
+            color = fs.on2,
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.W600,
+        )
+        Box(
+            Modifier
+                .padding(top = 14.dp)
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(fs.outline.copy(alpha = 0.6f)),
+        )
+        Row(
+            Modifier.padding(top = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                s.openFolder,
+                Modifier.weight(1f),
+                color = fs.secondary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.W700,
+            )
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = if (expandedNow) s.collapse else s.expand,
+                tint = fs.secondary,
+                modifier = Modifier
+                    .size(20.dp)
+                    .rotate(if (expandedNow) 90f else 0f),
             )
         }
     }
@@ -1217,9 +1444,9 @@ private fun PlaylistFolderRowView(
     Box(Modifier.nestLine(0, fs)) {
         Row(
             Modifier
-                .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)
+                .padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 14.dp)
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(15.dp))
+                .clip(RoundedCornerShape(20.dp))
                 .background(
                     if (pressed) Brush.linearGradient(
                         listOf(
@@ -1229,25 +1456,34 @@ private fun PlaylistFolderRowView(
                     ) else Brush.linearGradient(listOf(fs.standardGradStart, fs.standardGradEnd))
                 )
                 .clickable(interactionSource = interaction, indication = null, onClick = onToggleExpand)
-                .padding(start = 7.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
+                .padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                Icons.AutoMirrored.Filled.QueueMusic,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.padding(start = 2.dp).size(32.dp),
-            )
+            // иконка в скруглённом чипе с полупрозрачным белым оверлеем
+            Box(
+                Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White.copy(alpha = 0.22f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.QueueMusic,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
             Column(
                 Modifier
                     .weight(1f)
-                    .padding(start = 11.dp)
+                    .padding(start = 14.dp)
             ) {
                 Text(
                     s.playlists,
                     color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.W700,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.W800,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1257,20 +1493,27 @@ private fun PlaylistFolderRowView(
                         if (tracksCount > 0) append(" · ${s.plural(tracksCount, s.pTracks)}")
                     },
                     color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 12.sp,
+                    fontSize = 12.5.sp,
                     fontWeight = FontWeight.W600,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            Icon(
-                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = if (expandedNow) s.collapse else s.expand,
-                tint = Color.White.copy(alpha = 0.9f),
-                modifier = Modifier
-                    .size(20.dp)
-                    .rotate(if (expandedNow) 90f else 0f),
-            )
+            // шеврон в кружке с полупрозрачным оверлеем
+            Box(
+                Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                    contentDescription = if (expandedNow) s.collapse else s.expand,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .rotate(if (expandedNow) 90f else 0f),
+                )
+            }
         }
     }
 }

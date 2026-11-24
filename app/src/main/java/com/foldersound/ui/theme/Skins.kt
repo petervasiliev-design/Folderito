@@ -64,6 +64,9 @@ fun skinFromShort(
             folderGradEnd = darken(sec, 0.28f),
             standardGradStart = lighten(a, 0.14f),
             standardGradEnd = a,
+            // «золотой» чип Audiobooks: фиксированный во всех схемах
+            audiobooksGradStart = Color(0xFFE3A94F),
+            audiobooksGradEnd = Color(0xFFC6872F),
             // плейлисты: чуть светлее музыкальных папок (standardGrad)
             playlistGradStart = lighten(a, 0.24f),
             playlistGradEnd = lighten(a, 0.10f),
