@@ -1217,7 +1217,6 @@ private fun FavoriteCard(
     val fs = Fs.c
     val s = LocalStrings.current
     val view = LocalView.current
-    val interaction = remember { MutableInteractionSource() }
     val isAudiobooks = node.name.equals("Audiobooks", ignoreCase = true)
     val isMusic = node.name.equals("Music", ignoreCase = true)
     val chipBrush = when {
@@ -1247,24 +1246,51 @@ private fun FavoriteCard(
                 view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                 onLongPress()
             }
-            .clickable(interactionSource = interaction, indication = null, onClick = onOpenFolder)
-            .padding(16.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 8.dp),
     ) {
-        Row(verticalAlignment = Alignment.Top) {
+        // значок + имя и счётчики справа от него + звезда-бейдж
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(13.dp))
                     .background(chipBrush),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(chipIcon, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                Icon(chipIcon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
             }
-            Spacer(Modifier.weight(1f))
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(start = 11.dp)
+            ) {
+                Text(
+                    node.name,
+                    color = fs.on,
+                    fontSize = 15.5.sp,
+                    fontWeight = FontWeight.W800,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    buildString {
+                        val subs = node.children.size
+                        if (subs > 0) append("${s.plural(subs, s.pSubfolders)} · ")
+                        append(s.plural(node.allTracks.size, s.pTracks))
+                    },
+                    Modifier.padding(top = 2.dp),
+                    color = fs.on2,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.W600,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
             // звезда-бейдж — только индикатор, без тапа
             Box(
                 Modifier
-                    .size(36.dp)
+                    .size(30.dp)
                     .clip(CircleShape)
                     .background(fs.surf),
                 contentAlignment = Alignment.Center,
@@ -1273,39 +1299,29 @@ private fun FavoriteCard(
                     Icons.Filled.Star,
                     contentDescription = s.removeFromFavorites,
                     tint = fs.audiobooksGradStart,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(17.dp),
                 )
             }
         }
-        Text(
-            node.name,
-            Modifier.padding(top = 14.dp),
-            color = fs.on,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.W800,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            buildString {
-                val subs = node.children.size
-                if (subs > 0) append("${s.plural(subs, s.pSubfolders)} · ")
-                append(s.plural(node.allTracks.size, s.pTracks))
-            },
-            Modifier.padding(top = 3.dp),
-            color = fs.on2,
-            fontSize = 12.5.sp,
-            fontWeight = FontWeight.W600,
-        )
         Box(
             Modifier
-                .padding(top = 14.dp)
+                .padding(top = 10.dp)
                 .fillMaxWidth()
                 .height(1.dp)
                 .background(Color.White),
         )
+        // «Открыть папку» — единственная зона тапа: открывает экран папки
         Row(
-            Modifier.padding(top = 10.dp),
+            Modifier
+                .padding(top = 4.dp, bottom = 2.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onOpenFolder,
+                )
+                .padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -1319,7 +1335,7 @@ private fun FavoriteCard(
                 Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = s.expand,
                 tint = Color.White,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(18.dp),
             )
         }
     }
