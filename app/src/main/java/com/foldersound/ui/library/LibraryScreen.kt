@@ -998,6 +998,9 @@ private fun LazyListScope.treeRows(
     onOpenFolderBrowser: (String) -> Unit = {},
     onFavScrolling: (Boolean) -> Unit = {},
     onFavBounds: (androidx.compose.ui.geometry.Rect) -> Unit = {},
+    /** true — тап по папке раскрывает её на месте (экран папки);
+     *  false — тап открывает экран папки (главный экран, поиск). */
+    expandInPlace: Boolean = false,
 ) {
     items(rows, key = {
         when (it) {
@@ -1025,18 +1028,23 @@ private fun LazyListScope.treeRows(
             )
             is Row.FolderRow -> {
                 val segs = lib.relativeSegments(row.node.path)
+                // на экране папки — раскрытие на месте; на главном — тап открывает экран
                 FolderRowView(
                     node = row.node,
                     depth = row.depth,
                     tag = row.tag,
                     parentPath = if (segs.size > 1) segs.dropLast(1).joinToString(" / ") else null,
                     inMusicBranch = segs.firstOrNull()?.let { StandardFolders.isStandard(it) } == true,
-                    expandedNow = false,
+                    expandedNow = expandInPlace && expanded.contains(row.node.path),
                     checkState = vm.folderCheckState(row.node),
                     isFavorite = row.node.path in favorites,
                     selectedCount = vm.folderSelectedCount(row.node),
                     onToggleSel = { vm.toggleFolderSelection(row.node) },
-                    onOpen = { onOpenFolderBrowser(row.node.path) },
+                    onOpen = if (expandInPlace) {
+                        { vm.toggleFolder(row.node.path) }
+                    } else {
+                        { onOpenFolderBrowser(row.node.path) }
+                    },
                     onLongPress = { onFolderMenu(row.node) },
                     query = query,
                 )
@@ -1438,6 +1446,7 @@ fun FolderBrowserScreen(
                             query = "",
                             s = s,
                             onFolderMenu = { menuFolder = it },
+                            expandInPlace = true,
                         )
                     }
                 }
@@ -1462,6 +1471,7 @@ fun FolderBrowserScreen(
                             query = "",
                             s = s,
                             onFolderMenu = { menuFolder = it },
+                            expandInPlace = true,
                         )
                     }
                 }
