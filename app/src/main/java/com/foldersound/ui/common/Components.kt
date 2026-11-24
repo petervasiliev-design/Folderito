@@ -139,16 +139,18 @@ fun TriCheck(
 ) {
     val fs = Fs.c
     val filled = state != CheckState.Off
+    // незаполненная — прозрачная с рамкой (цвет рамки зависит от контекста),
+    // заполненная — белая на плитках папок / primary в списках
     val boxColor = when {
-        !filled && onFolderRow -> Color.Transparent
-        onFolderRow -> Color.White
-        else -> fs.primary
+        filled && onFolderRow -> Color.White
+        filled -> fs.primary
+        else -> Color.Transparent
     }
     val borderColor = when {
         filled && onFolderRow -> Color.White
         onFolderRow -> Color.White.copy(alpha = 0.75f)
         filled -> fs.primary
-        else -> fs.on2
+        else -> fs.secondary
     }
     val iconTint = if (onFolderRow) fs.primary else Color.White
     Box(modifier.size(38.dp, 44.dp), contentAlignment = Alignment.Center) {

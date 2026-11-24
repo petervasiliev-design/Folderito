@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
@@ -1179,7 +1180,15 @@ private fun FavoriteCard(
     Column(
         modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(fs.surf2)
+            // фон — тёплый беж: стандартный градиент скина, сильно осветлённый
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        lerp(fs.standardGradStart, Color.White, 0.38f),
+                        lerp(fs.standardGradEnd, Color.White, 0.38f),
+                    )
+                )
+            )
             .border(1.dp, fs.outline, RoundedCornerShape(20.dp))
             // удержание 2 с — меню «избранное / спрятать»
             .holdToggle(timeoutMs = 2_000) {
@@ -1290,19 +1299,8 @@ private fun FolderRowView(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val folderView = LocalView.current
-    // фон: все папки — единый стандартный градиент скина; избранная — тот же
-    // градиент, но намного светлее (тёплый беж), текст на ней тёмный
-    val favText = Color(0xFF3B2D20)
-    val bgBrush = if (isFavorite) {
-        Brush.linearGradient(
-            listOf(
-                lerp(fs.standardGradStart, Color.White, 0.38f),
-                lerp(fs.standardGradEnd, Color.White, 0.38f),
-            )
-        )
-    } else {
-        Brush.linearGradient(listOf(fs.standardGradStart, fs.standardGradEnd))
-    }
+    // фон ВСЕХ строк единый — светлый крем fs.surf2 (бывший цвет карточек карусели);
+    // избранная папка отмечается включённой (золотой) звездой
     // zIndex: плашка подписи этой строки рисуется поверх черт нижних строк
     Box(Modifier.zIndex(if (nest != null) 1f else 0f).nestLine(depth, fs)) {
         if (nest != null) {
@@ -1320,21 +1318,7 @@ private fun FolderRowView(
                 )
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(15.dp))
-                .background(
-                    if (pressed) {
-                        val a = 0.88f
-                        Brush.linearGradient(
-                            listOf(
-                                (if (isFavorite) lerp(fs.standardGradStart, Color.White, 0.38f) else fs.standardGradStart)
-                                    .copy(alpha = a),
-                                (if (isFavorite) lerp(fs.standardGradEnd, Color.White, 0.38f) else fs.standardGradEnd)
-                                    .copy(alpha = a),
-                            )
-                        )
-                    } else {
-                        bgBrush
-                    }
-                )
+                .background(if (pressed) fs.surf3 else fs.surf2)
                 // удержание 2 с — меню папки (holdToggle первым в цепочке: тап не
                 // consumed и доходит до clickable, удержание добивается само)
                 .then(
@@ -1362,12 +1346,12 @@ private fun FolderRowView(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            TriCheck(state = checkState, onFolderRow = !isFavorite, modifier = Modifier.size(38.dp, 44.dp))
+            TriCheck(state = checkState, modifier = Modifier.size(38.dp, 44.dp))
         }
         Icon(
             if (expandedNow) FsIcons.FolderOpen else FsIcons.Folder,
             contentDescription = null,
-            tint = if (isFavorite) favText else Color.White,
+            tint = fs.secondary,
             modifier = Modifier.padding(start = 2.dp).size(32.dp),
         )
         Column(
@@ -1378,7 +1362,7 @@ private fun FolderRowView(
             if (parentPath != null) {
                 Text(
                     parentPath,
-                    color = if (isFavorite) favText.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.72f),
+                    color = fs.on3,
                     fontSize = 10.5.sp,
                     lineHeight = 12.sp,
                     fontWeight = FontWeight.W600,
@@ -1390,8 +1374,8 @@ private fun FolderRowView(
                 highlight(
                     text = node.name,
                     query = query,
-                    baseColor = if (isFavorite) favText else Color.White,
-                    highlightColor = if (isFavorite) favText else Color.White,
+                    baseColor = fs.on,
+                    highlightColor = fs.accent,
                 ),
                 fontSize = 15.sp,
                 lineHeight = if (parentPath != null) 18.sp else TextUnit.Unspecified,
@@ -1406,7 +1390,7 @@ private fun FolderRowView(
                     if (subs > 0) append("${s.plural(subs, s.pSubfolders)} · ")
                     append(s.plural(cnt, s.pTracks))
                 },
-                color = if (isFavorite) favText.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.85f),
+                color = fs.on2,
                 fontSize = 12.sp,
                 lineHeight = if (parentPath != null) 13.sp else TextUnit.Unspecified,
                 fontWeight = FontWeight.W600,
@@ -1414,20 +1398,19 @@ private fun FolderRowView(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-            if (isFavorite) {
-                Icon(
-                    Icons.Filled.Star,
-                    contentDescription = null,
-                    tint = fs.audiobooksGradStart,
-                    modifier = Modifier
-                        .padding(start = 2.dp, end = 6.dp)
-                        .size(20.dp),
-                )
-            }
+            // избранная — включённая (золотая) звезда; у остальных — контур
+            Icon(
+                if (isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
+                contentDescription = if (isFavorite) s.removeFromFavorites else s.addToFavorites,
+                tint = if (isFavorite) fs.audiobooksGradStart else fs.secondary,
+                modifier = Modifier
+                    .padding(start = 2.dp, end = 6.dp)
+                    .size(20.dp),
+            )
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = if (expandedNow) s.collapse else s.expand,
-                tint = Color.White.copy(alpha = 0.9f),
+                tint = fs.on3,
                 modifier = Modifier
                     .size(20.dp)
                     .rotate(if (expandedNow) 90f else 0f),
