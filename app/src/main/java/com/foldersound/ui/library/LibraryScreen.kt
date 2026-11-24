@@ -79,6 +79,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
@@ -1144,8 +1145,6 @@ private fun FavoritesSection(
                 FavoriteCard(
                     node = node,
                     expandedNow = expanded.contains(node.path),
-                    onToggleExpand = { vm.toggleFolder(node.path) },
-                    onToggleFavorite = { vm.toggleFavorite(node.path) },
                     onLongPress = { onFolderMenu(node) },
                     modifier = Modifier.fillParentMaxWidth(0.85f),
                 )
@@ -1154,20 +1153,18 @@ private fun FavoritesSection(
     }
 }
 
-/** Карточка избранной папки: чип-иконка, звезда-бейдж, счётчики, «Открыть папку». */
+/** Карточка избранной папки: чип-иконка, звезда-бейдж, счётчики, «Открыть папку».
+ *  Тапов нет — поведение нажатия будет переделано позже; удержание 2 с — меню. */
 @Composable
 private fun FavoriteCard(
     node: FolderNode,
     expandedNow: Boolean,
-    onToggleExpand: () -> Unit,
-    onToggleFavorite: () -> Unit,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
     val view = LocalView.current
-    val interaction = remember { MutableInteractionSource() }
     val isAudiobooks = node.name.equals("Audiobooks", ignoreCase = true)
     val isMusic = node.name.equals("Music", ignoreCase = true)
     val chipBrush = when {
@@ -1184,12 +1181,11 @@ private fun FavoriteCard(
             .clip(RoundedCornerShape(20.dp))
             .background(fs.surf2)
             .border(1.dp, fs.outline, RoundedCornerShape(20.dp))
-            // прежнее поведение: удержание 2 с — меню «избранное / спрятать»
+            // удержание 2 с — меню «избранное / спрятать»
             .holdToggle(timeoutMs = 2_000) {
                 view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                 onLongPress()
             }
-            .clickable(interactionSource = interaction, indication = null, onClick = onToggleExpand)
             .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.Top) {
@@ -1203,17 +1199,12 @@ private fun FavoriteCard(
                 Icon(chipIcon, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
             }
             Spacer(Modifier.weight(1f))
-            // звезда-бейдж: тап — убрать из избранного (та же функция, что в меню)
+            // звезда-бейдж — только индикатор, без тапа
             Box(
                 Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(fs.surf)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onToggleFavorite,
-                    ),
+                    .background(fs.surf),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -1299,11 +1290,19 @@ private fun FolderRowView(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val folderView = LocalView.current
-    // музыкальные ветки (корень — стандартный каталог) на любой глубине вложения
-    // и любые папки со стандартным именем — плитка особого (standardGrad) цвета
-    val isStandard = StandardFolders.isStandard(node.name) || inMusicBranch
-    val gradStart = if (isStandard) fs.standardGradStart else fs.folderGradStart
-    val gradEnd = if (isStandard) fs.standardGradEnd else fs.folderGradEnd
+    // фон: все папки — единый стандартный градиент скина; избранная — тот же
+    // градиент, но намного светлее (тёплый беж), текст на ней тёмный
+    val favText = Color(0xFF3B2D20)
+    val bgBrush = if (isFavorite) {
+        Brush.linearGradient(
+            listOf(
+                lerp(fs.standardGradStart, Color.White, 0.38f),
+                lerp(fs.standardGradEnd, Color.White, 0.38f),
+            )
+        )
+    } else {
+        Brush.linearGradient(listOf(fs.standardGradStart, fs.standardGradEnd))
+    }
     // zIndex: плашка подписи этой строки рисуется поверх черт нижних строк
     Box(Modifier.zIndex(if (nest != null) 1f else 0f).nestLine(depth, fs)) {
         if (nest != null) {
@@ -1322,9 +1321,19 @@ private fun FolderRowView(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(15.dp))
                 .background(
-                    if (pressed) Brush.linearGradient(
-                        listOf(gradStart.copy(alpha = 0.88f), gradEnd.copy(alpha = 0.88f))
-                    ) else Brush.linearGradient(listOf(gradStart, gradEnd))
+                    if (pressed) {
+                        val a = 0.88f
+                        Brush.linearGradient(
+                            listOf(
+                                (if (isFavorite) lerp(fs.standardGradStart, Color.White, 0.38f) else fs.standardGradStart)
+                                    .copy(alpha = a),
+                                (if (isFavorite) lerp(fs.standardGradEnd, Color.White, 0.38f) else fs.standardGradEnd)
+                                    .copy(alpha = a),
+                            )
+                        )
+                    } else {
+                        bgBrush
+                    }
                 )
                 // удержание 2 с — меню папки (holdToggle первым в цепочке: тап не
                 // consumed и доходит до clickable, удержание добивается само)
@@ -1353,12 +1362,12 @@ private fun FolderRowView(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            TriCheck(state = checkState, onFolderRow = true, modifier = Modifier.size(38.dp, 44.dp))
+            TriCheck(state = checkState, onFolderRow = !isFavorite, modifier = Modifier.size(38.dp, 44.dp))
         }
         Icon(
             if (expandedNow) FsIcons.FolderOpen else FsIcons.Folder,
             contentDescription = null,
-            tint = Color.White,
+            tint = if (isFavorite) favText else Color.White,
             modifier = Modifier.padding(start = 2.dp).size(32.dp),
         )
         Column(
@@ -1369,7 +1378,7 @@ private fun FolderRowView(
             if (parentPath != null) {
                 Text(
                     parentPath,
-                    color = Color.White.copy(alpha = 0.72f),
+                    color = if (isFavorite) favText.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.72f),
                     fontSize = 10.5.sp,
                     lineHeight = 12.sp,
                     fontWeight = FontWeight.W600,
@@ -1381,8 +1390,8 @@ private fun FolderRowView(
                 highlight(
                     text = node.name,
                     query = query,
-                    baseColor = Color.White,
-                    highlightColor = Color.White,
+                    baseColor = if (isFavorite) favText else Color.White,
+                    highlightColor = if (isFavorite) favText else Color.White,
                 ),
                 fontSize = 15.sp,
                 lineHeight = if (parentPath != null) 18.sp else TextUnit.Unspecified,
@@ -1397,7 +1406,7 @@ private fun FolderRowView(
                     if (subs > 0) append("${s.plural(subs, s.pSubfolders)} · ")
                     append(s.plural(cnt, s.pTracks))
                 },
-                color = Color.White.copy(alpha = 0.85f),
+                color = if (isFavorite) favText.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.85f),
                 fontSize = 12.sp,
                 lineHeight = if (parentPath != null) 13.sp else TextUnit.Unspecified,
                 fontWeight = FontWeight.W600,
@@ -1409,7 +1418,7 @@ private fun FolderRowView(
                 Icon(
                     Icons.Filled.Star,
                     contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.9f),
+                    tint = fs.audiobooksGradStart,
                     modifier = Modifier
                         .padding(start = 2.dp, end = 6.dp)
                         .size(20.dp),
