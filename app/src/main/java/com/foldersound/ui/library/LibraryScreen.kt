@@ -1249,7 +1249,7 @@ private fun FavoriteCard(
                 .padding(top = 14.dp)
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(fs.outline.copy(alpha = 0.6f)),
+                .background(Color.White),
         )
         Row(
             Modifier.padding(top = 10.dp),
@@ -1258,14 +1258,14 @@ private fun FavoriteCard(
             Text(
                 s.openFolder,
                 Modifier.weight(1f),
-                color = fs.on2,
+                color = Color.White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.W800,
             )
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = if (expandedNow) s.collapse else s.expand,
-                tint = fs.on2,
+                tint = Color.White,
                 modifier = Modifier
                     .size(20.dp)
                     .rotate(if (expandedNow) 90f else 0f),
