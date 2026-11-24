@@ -3,6 +3,7 @@ package com.foldersound.ui.library
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -13,7 +14,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.ScrollScope
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +39,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -72,6 +76,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -87,6 +92,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
@@ -1175,19 +1181,23 @@ private fun FavoritesSection(
         // тоже может встать точно по центру, соседи выглядывают по краям
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val sidePad = (maxWidth - maxWidth * 0.85f) / 2
+            val cardWidth = maxWidth * 0.85f
+            val density = LocalDensity.current
+            val stepPx = with(density) { (cardWidth + 12.dp).toPx() }
+            val fling = remember(stepPx) { BallSettleFling(listState) { stepPx } }
             LazyRow(
                 Modifier.fillMaxWidth(),
                 state = listState,
                 contentPadding = PaddingValues(horizontal = sidePad),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
+                flingBehavior = fling,
             ) {
                 items(folders, key = { "favcard${it.path}" }) { node ->
                     FavoriteCard(
                         node = node,
                         onOpenFolder = { onOpenFolder(node.path) },
                         onLongPress = { onFolderMenu(node) },
-                        modifier = Modifier.fillParentMaxWidth(0.85f),
+                        modifier = Modifier.width(cardWidth),
                     )
                 }
             }
@@ -2112,5 +2122,54 @@ private fun EmptyLibrary() {
             color = fs.on3,
             fontWeight = FontWeight.W700,
         )
+    }
+}
+
+/* ==================== флинг карусели «шар в углубление» ==================== */
+
+/**
+ * Флинг карусели избранного: катишься быстро и резко останавливаешься,
+ * как шар, ложащийся в углубление. За один жест — не больше одной позиции;
+ * еле заметное смещение просто доцентрируется.
+ *
+ * [stepPx] — расстояние между центрами соседних карточек (ширина карточки + зазор).
+ */
+private class BallSettleFling(
+    private val state: LazyListState,
+    private val stepPx: () -> Float,
+) : FlingBehavior {
+    override suspend fun ScrollScope.performFling(initialVelocity: Float): Float {
+        val step = stepPx()
+        if (step <= 0f) return 0f
+        val total = state.layoutInfo.totalItemsCount
+        if (total == 0) return 0f
+
+        // текущее дробное положение (в «позицих»)
+        val current = state.firstVisibleItemIndex + state.firstVisibleItemScrollOffset / step
+        val nearest = kotlin.math.round(current).toInt().coerceIn(0, total - 1)
+        // еле заметный сдвиг — просто доцентрироваться; жест — на соседнюю позицию
+        val target = if (kotlin.math.abs(initialVelocity) < 60f) {
+            nearest
+        } else {
+            (nearest + if (initialVelocity > 0f) 1 else -1).coerceIn(0, total - 1)
+        }
+        val delta = (target - current) * step
+        if (kotlin.math.abs(delta) < 1f) return 0f
+
+        // быстрый кати и резко остановился: почти всё расстояние — в первой трети
+        val easing = CubicBezierEasing(0.16f, 0.72f, 0.08f, 1f)
+        val durationMs = 300f
+        var elapsed = 0f
+        var lastPos = 0f
+        val startNanos = withFrameNanos { it }
+        while (elapsed < durationMs) {
+            withFrameNanos { now -> elapsed = (now - startNanos) / 1_000_000f }
+            val eased = easing.transform((elapsed / durationMs).coerceIn(0f, 1f))
+            val pos = delta * eased
+            scrollBy(pos - lastPos)
+            lastPos = pos
+        }
+        scrollBy(delta - lastPos)
+        return 0f
     }
 }
