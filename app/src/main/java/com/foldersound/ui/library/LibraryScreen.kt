@@ -13,10 +13,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -38,6 +40,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -77,12 +80,15 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -287,6 +293,10 @@ fun LibraryScreen(
     val currentMediaId by connection.currentMediaId.collectAsStateWithLifecycle()
 
     var drawerOpen by remember { mutableStateOf(false) }
+    // карусель избранного сейчас тащится/флингуется — горизонтальный свайп к плееру глушится
+    var favCarouselScrolling by remember { mutableStateOf(false) }
+    // границы карусели на экране: жесты, начавшиеся внутри неё, не открывают плеер
+    var favBounds by remember { mutableStateOf<Rect?>(null) }
 
     // «назад»: сначала шторка, потом поиск, потом сброс выбора
     BackHandler(enabled = !drawerOpen && (searchOpen || selected.isNotEmpty())) {
@@ -307,7 +317,12 @@ fun LibraryScreen(
         Modifier
             .fillMaxSize()
             .background(fs.bg)
-            .horizontalSwipes(onSwipeLeft = ::tryOpenPlayer)
+            // пока тащится карусель избранного — свайп к плееру отключён
+            .horizontalSwipes(
+                onSwipeLeft = ::tryOpenPlayer,
+                enabled = !favCarouselScrolling,
+                skipInBounds = { p -> favBounds?.contains(p) == true },
+            )
     ) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             AnimatedContent(
@@ -359,6 +374,8 @@ fun LibraryScreen(
                         isPlaying = isPlaying,
                         onFolderMenu = { menuFolder = it },
                         onOpenFolderBrowser = onOpenFolderBrowser,
+                        onFavScrolling = { favCarouselScrolling = it },
+                        onFavBounds = { favBounds = it },
                     )
                 }
             }
@@ -955,6 +972,8 @@ private fun TreeList(
     isPlaying: Boolean,
     onFolderMenu: (FolderNode) -> Unit,
     onOpenFolderBrowser: (String) -> Unit = {},
+    onFavScrolling: (Boolean) -> Unit = {},
+    onFavBounds: (androidx.compose.ui.geometry.Rect) -> Unit = {},
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
@@ -979,6 +998,8 @@ private fun TreeList(
             s = s,
             onFolderMenu = onFolderMenu,
             onOpenFolderBrowser = onOpenFolderBrowser,
+            onFavScrolling = onFavScrolling,
+            onFavBounds = onFavBounds,
         )
     }
 }
@@ -1001,6 +1022,8 @@ private fun LazyListScope.treeRows(
     s: FsStrings,
     onFolderMenu: (FolderNode) -> Unit,
     onOpenFolderBrowser: (String) -> Unit = {},
+    onFavScrolling: (Boolean) -> Unit = {},
+    onFavBounds: (androidx.compose.ui.geometry.Rect) -> Unit = {},
 ) {
     items(rows, key = {
         when (it) {
@@ -1023,6 +1046,8 @@ private fun LazyListScope.treeRows(
                 vm = vm,
                 onFolderMenu = onFolderMenu,
                 onOpenFolder = onOpenFolderBrowser,
+                onScrolling = onFavScrolling,
+                onBounds = onFavBounds,
             )
             is Row.FolderRow -> {
                 val segs = lib.relativeSegments(row.node.path)
@@ -1095,7 +1120,9 @@ private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** «Избранное»: заголовок со звездой, счётчиком и «Листать» + карусель карточек. */
+/** «Избранное»: заголовок со звездой, счётчиком и «Листать» + карусель карточек.
+ *  Карусель со снапом: элемент всегда центрирован, соседи видны по бокам,
+ *  небольшой свайп переставляет ровно на одну позицию. */
 @Composable
 private fun FavoritesSection(
     folders: List<FolderNode>,
@@ -1103,10 +1130,18 @@ private fun FavoritesSection(
     vm: LibraryViewModel,
     onFolderMenu: (FolderNode) -> Unit,
     onOpenFolder: (String) -> Unit = {},
+    onScrolling: (Boolean) -> Unit = {},
+    onBounds: (androidx.compose.ui.geometry.Rect) -> Unit = {},
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
-    Column {
+    val listState = rememberLazyListState()
+    LaunchedEffect(listState.isScrollInProgress) {
+        onScrolling(listState.isScrollInProgress)
+    }
+    Column(
+        Modifier.onGloballyPositioned { onBounds(it.boundsInRoot()) },
+    ) {
         Row(
             Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -1147,19 +1182,26 @@ private fun FavoritesSection(
                 fontWeight = FontWeight.W700,
             )
         }
-        LazyRow(
-            Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(folders, key = { "favcard${it.path}" }) { node ->
-                FavoriteCard(
-                    node = node,
-                    expandedNow = expanded.contains(node.path),
-                    onOpenFolder = { onOpenFolder(node.path) },
-                    onLongPress = { onFolderMenu(node) },
-                    modifier = Modifier.fillParentMaxWidth(0.85f),
-                )
+        // боковой отступ = (экран - карточка) / 2: первый/последний элемент
+        // тоже может встать точно по центру, соседи выглядывают по краям
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val sidePad = (maxWidth - maxWidth * 0.85f) / 2
+            LazyRow(
+                Modifier.fillMaxWidth(),
+                state = listState,
+                contentPadding = PaddingValues(horizontal = sidePad),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
+            ) {
+                items(folders, key = { "favcard${it.path}" }) { node ->
+                    FavoriteCard(
+                        node = node,
+                        expandedNow = expanded.contains(node.path),
+                        onOpenFolder = { onOpenFolder(node.path) },
+                        onLongPress = { onFolderMenu(node) },
+                        modifier = Modifier.fillParentMaxWidth(0.85f),
+                    )
+                }
             }
         }
     }

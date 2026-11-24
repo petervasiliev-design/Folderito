@@ -718,12 +718,17 @@ fun Modifier.horizontalSwipes(
     onSwipeRight: (() -> Unit)? = null,
     threshold: Dp = 100.dp,
     enabled: Boolean = true,
+    /** Жесты, начавшиеся в этой зоне экрана, игнорируются целиком
+     *  (например, границы карусели с собственным горизонтальным скроллом). */
+    skipInBounds: (Offset) -> Boolean = { false },
 ): Modifier = composed {
     val currentEnabled by rememberUpdatedState(enabled)
+    val currentSkip by rememberUpdatedState(skipInBounds)
     pointerInput(Unit) {
         val thrPx = threshold.toPx()
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (currentSkip(down.position)) return@awaitEachGesture
             if (!currentEnabled) return@awaitEachGesture
             var acc = 0f
             var fired = false
