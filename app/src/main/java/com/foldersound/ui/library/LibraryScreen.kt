@@ -1246,7 +1246,7 @@ private fun FavoriteCard(
                 view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                 onLongPress()
             }
-            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 8.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 26.dp, bottom = 18.dp),
     ) {
         // значок + имя и счётчики справа от него + звезда-бейдж
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1305,7 +1305,7 @@ private fun FavoriteCard(
         }
         Box(
             Modifier
-                .padding(top = 10.dp)
+                .padding(top = 24.dp)
                 .fillMaxWidth()
                 .height(1.dp)
                 .background(Color.White),
