@@ -181,28 +181,13 @@ private fun buildRows(
     tracksLabel: String,
 ): List<Row> {
     val out = mutableListOf<Row>()
+    // «Плейлисты» — плитка без раскрытия: тап открывает экран плейлистов
     val playlists = lib.playlists
     if (playlists.isNotEmpty()) {
         out += Row.PlaylistFolderRow(
             playlistsCount = playlists.size,
             tracksCount = playlists.sumOf { it.tracks.size },
         )
-        if (expanded.contains(PLAYLISTS_KEY)) {
-            playlists.forEach { playlist ->
-                out += Row.PlaylistRow(playlist, depth = 1)
-        if (expanded.contains(playlist.path)) {
-            // треки плейлиста — без вертикальных подписей-названий на черте
-                    playlist.tracks.forEach {
-                        out += Row.TrackRow(
-                            it,
-                            depth = 2,
-                            keySuffix = "#p${playlist.path}",
-                            fromPlaylist = true,
-                        )
-                    }
-        }
-            }
-        }
     }
     // «Избранное» — карусель карточек; раскрытие папок живёт только в дереве ниже
     if (favorites.isNotEmpty()) {
@@ -212,7 +197,8 @@ private fun buildRows(
             out += Row.FavoritesCarouselRow(favNodes)
         }
     }
-    out += flatten(lib.root, expanded, 0, true, foldersLabel, tracksLabel)
+    // папки на основном экране не раскрываются: содержимое — в экране папки
+    out += flatten(lib.root, emptySet(), 0, true, foldersLabel, tracksLabel)
     return out
 }
 
@@ -357,6 +343,7 @@ fun LibraryScreen(
                         isPlaying = isPlaying,
                         expanded = expanded,
                         selected = selected,
+                        onOpenFolderBrowser = onOpenFolderBrowser,
                         vm = vm,
                     )
                     else -> TreeList(
@@ -826,6 +813,7 @@ private fun SearchResults(
     isPlaying: Boolean,
     expanded: Set<String>,
     selected: Set<Long>,
+    onOpenFolderBrowser: (String) -> Unit = {},
     vm: LibraryViewModel,
 ) {
     val fs = Fs.c
@@ -875,20 +863,11 @@ private fun SearchResults(
                     Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
                 )
             }
-            // плоский список строк: найденная папка всегда показывается своей плиткой;
-            // если она развёрнута — под ней видно её поддерево. Совпадение, чей предок —
-            // тоже совпадение и развёрнут, не дублируется (он уже виден внутри родителя)
+            // плоский список строк: найденные папки — свёрнутыми плитками,
+            // тап открывает экран папки (содержимое не разворачивается в поиске)
             val folderRows = ArrayList<Row>(folderMatches.size)
             folderMatches.forEach { node ->
-                val hiddenInParent = folderMatches.any { other ->
-                    other !== node && expanded.contains(other.path) &&
-                        node.path.startsWith(other.path + "/")
-                }
-                if (hiddenInParent) return@forEach
                 folderRows += Row.FolderRow(node, 0)
-                if (expanded.contains(node.path)) {
-                    folderRows += flatten(node, expanded, 1, false, s.folders, s.tracks)
-                }
             }
             items(folderRows.size, key = { i ->
                 when (val row = folderRows[i]) {
@@ -906,11 +885,11 @@ private fun SearchResults(
                             tag = row.tag,
                             parentPath = if (segs.size > 1) segs.dropLast(1).joinToString(" / ") else null,
                             inMusicBranch = segs.firstOrNull()?.let { StandardFolders.isStandard(it) } == true,
-                            expandedNow = expanded.contains(row.node.path),
+                            expandedNow = false,
                             checkState = vm.folderCheckState(row.node),
                             selectedCount = vm.folderSelectedCount(row.node),
                             onToggleSel = { vm.toggleFolderSelection(row.node) },
-                            onToggleExpand = { vm.toggleFolder(row.node.path) },
+                            onOpen = { onOpenFolderBrowser(row.node.path) },
                             query = query,
                         )
                     }
@@ -1052,12 +1031,12 @@ private fun LazyListScope.treeRows(
                     tag = row.tag,
                     parentPath = if (segs.size > 1) segs.dropLast(1).joinToString(" / ") else null,
                     inMusicBranch = segs.firstOrNull()?.let { StandardFolders.isStandard(it) } == true,
-                    expandedNow = expanded.contains(row.node.path),
+                    expandedNow = false,
                     checkState = vm.folderCheckState(row.node),
                     isFavorite = row.node.path in favorites,
                     selectedCount = vm.folderSelectedCount(row.node),
                     onToggleSel = { vm.toggleFolderSelection(row.node) },
-                    onToggleExpand = { vm.toggleFolder(row.node.path) },
+                    onOpen = { onOpenFolderBrowser(row.node.path) },
                     onLongPress = { onFolderMenu(row.node) },
                     query = query,
                 )
@@ -1084,8 +1063,8 @@ private fun LazyListScope.treeRows(
             is Row.PlaylistFolderRow -> PlaylistFolderRowView(
                 playlistsCount = row.playlistsCount,
                 tracksCount = row.tracksCount,
-                expandedNow = expanded.contains(PLAYLISTS_KEY),
-                onToggleExpand = { vm.toggleFolder(PLAYLISTS_KEY) },
+                expandedNow = false,
+                onOpen = { onOpenFolderBrowser(PLAYLISTS_KEY) },
             )
             is Row.PlaylistRow -> PlaylistRowView(
                 playlist = row.playlist,
@@ -1366,6 +1345,8 @@ fun FolderBrowserScreen(
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     val node = lib?.root?.findByPath(folderPath)
+    val isPlaylistsMode = folderPath == PLAYLISTS_KEY
+    val playlists = lib?.playlists ?: emptyList()
     var menuFolder by remember { mutableStateOf<FolderNode?>(null) }
 
     // «назад» сначала снимает выделение, потом уходит с экрана
@@ -1384,22 +1365,35 @@ fun FolderBrowserScreen(
             ) {
                 IconBtn(Icons.AutoMirrored.Filled.ArrowBack, s.backDesc, onBack)
                 Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                    val title = if (isPlaylistsMode) s.playlists
+                    else node?.name ?: folderPath.substringAfterLast('/')
                     Text(
-                        node?.name ?: folderPath.substringAfterLast('/'),
+                        title,
                         color = fs.on,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.W800,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    node?.let {
-                        Text(
+                    val subtitle = if (isPlaylistsMode) {
+                        buildString {
+                            append(s.plural(playlists.size, s.pPlaylists))
+                            val tr = playlists.sumOf { it.tracks.size }
+                            if (tr > 0) append(" · ${s.plural(tr, s.pTracks)}")
+                        }
+                    } else {
+                        node?.let {
                             buildString {
                                 if (it.children.size > 0) {
                                     append("${s.plural(it.children.size, s.pSubfolders)} · ")
                                 }
                                 append(s.plural(it.allTracks.size, s.pTracks))
-                            },
+                            }
+                        }
+                    }
+                    subtitle?.let {
+                        Text(
+                            it,
                             color = fs.on2,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.W600,
@@ -1409,6 +1403,44 @@ fun FolderBrowserScreen(
             }
             when {
                 lib == null -> Centered { CircularProgressIndicator(color = fs.accent) }
+                // «Плейлисты»: список плейлистов с раскрытием треков на месте
+                folderPath == PLAYLISTS_KEY -> {
+                    val rows = remember(lib, playlists, expanded, s) {
+                        val out = mutableListOf<Row>()
+                        playlists.forEach { playlist ->
+                            out += Row.PlaylistRow(playlist, depth = 0)
+                            if (expanded.contains(playlist.path)) {
+                                playlist.tracks.forEach {
+                                    out += Row.TrackRow(
+                                        it,
+                                        depth = 1,
+                                        keySuffix = "#p${playlist.path}",
+                                        fromPlaylist = true,
+                                    )
+                                }
+                            }
+                        }
+                        out.toList()
+                    }
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 40.dp + navBottom),
+                    ) {
+                        treeRows(
+                            rows = rows,
+                            lib = lib!!,
+                            expanded = expanded,
+                            selected = selected,
+                            favorites = favorites,
+                            vm = vm,
+                            currentId = currentMediaId?.toLongOrNull(),
+                            isPlaying = isPlaying,
+                            query = "",
+                            s = s,
+                            onFolderMenu = { menuFolder = it },
+                        )
+                    }
+                }
                 node == null -> EmptyLibrary()
                 else -> {
                     val rows = remember(lib, node, expanded, s) {
@@ -1472,7 +1504,8 @@ private fun FolderRowView(
     /** Сколько выбранных треков в поддереве — пишется на контроле папки. */
     selectedCount: Int = 0,
     onToggleSel: () -> Unit,
-    onToggleExpand: () -> Unit,
+    /** Тап по строке — открыть экран папки (раскрытия на основном экране нет). */
+    onOpen: () -> Unit,
     /** Удержание 2 с — меню «избранное/спрятать»; null — жест выключен (поиск). */
     onLongPress: (() -> Unit)? = null,
     query: String = "",
@@ -1515,7 +1548,7 @@ private fun FolderRowView(
                         }
                     }
                 )
-                .clickable(interactionSource = interaction, indication = null, onClick = onToggleExpand)
+                .clickable(interactionSource = interaction, indication = null, onClick = onOpen)
                 .padding(start = 7.dp, end = 14.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1630,7 +1663,7 @@ private fun PlaylistFolderRowView(
     playlistsCount: Int,
     tracksCount: Int,
     expandedNow: Boolean,
-    onToggleExpand: () -> Unit,
+    onOpen: () -> Unit,
 ) {
     val fs = Fs.c
     val s = LocalStrings.current
@@ -1650,7 +1683,7 @@ private fun PlaylistFolderRowView(
                         )
                     ) else Brush.linearGradient(listOf(fs.standardGradStart, fs.standardGradEnd))
                 )
-                .clickable(interactionSource = interaction, indication = null, onClick = onToggleExpand)
+                .clickable(interactionSource = interaction, indication = null, onClick = onOpen)
                 .padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
