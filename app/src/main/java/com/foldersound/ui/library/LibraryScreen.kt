@@ -1357,8 +1357,8 @@ fun FolderBrowserScreen(
     val playlists = lib?.playlists ?: emptyList()
     var menuFolder by remember { mutableStateOf<FolderNode?>(null) }
 
-    // «назад» сначала снимает выделение, потом уходит с экрана
-    BackHandler(enabled = selected.isNotEmpty()) { vm.clearSelection() }
+    // системная «Назад» работает как стрелка: уходит с экрана,
+    // выделение сохраняется (снимается кнопкой на панели/контроле)
 
     Box(
         Modifier
