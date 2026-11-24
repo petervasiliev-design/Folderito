@@ -769,6 +769,8 @@ private fun SearchRow(query: String, onQuery: (String) -> Unit, onClose: () -> U
                             color = fs.on3,
                             fontSize = 14.5.sp,
                             fontWeight = FontWeight.W600,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     inner()
