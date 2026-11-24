@@ -198,23 +198,12 @@ private fun buildRows(
             }
         }
     }
-    // «Избранное» — карусель карточек; развёрнутые папки показывают поддерево под ней
+    // «Избранное» — карусель карточек; раскрытие папок живёт только в дереве ниже
     if (favorites.isNotEmpty()) {
         val favNodes = favorites.mapNotNull { lib.root.findByPath(it) }
             .sortedBy { it.path.lowercase() }
         if (favNodes.isNotEmpty()) {
             out += Row.FavoritesCarouselRow(favNodes)
-            favNodes.forEach { node ->
-                if (expanded.contains(node.path)) {
-                    flatten(node, expanded, 1, false, foldersLabel, tracksLabel).forEach { r ->
-                        out += when (r) {
-                            is Row.FolderRow -> r.copy(keySuffix = "#fav")
-                            is Row.TrackRow -> r.copy(keySuffix = "#fav")
-                            else -> r
-                        }
-                    }
-                }
-            }
         }
     }
     out += flatten(lib.root, expanded, 0, true, foldersLabel, tracksLabel)
@@ -1196,7 +1185,6 @@ private fun FavoritesSection(
                 items(folders, key = { "favcard${it.path}" }) { node ->
                     FavoriteCard(
                         node = node,
-                        expandedNow = expanded.contains(node.path),
                         onOpenFolder = { onOpenFolder(node.path) },
                         onLongPress = { onFolderMenu(node) },
                         modifier = Modifier.fillParentMaxWidth(0.85f),
@@ -1212,7 +1200,6 @@ private fun FavoritesSection(
 @Composable
 private fun FavoriteCard(
     node: FolderNode,
-    expandedNow: Boolean,
     onOpenFolder: () -> Unit,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
@@ -1320,11 +1307,9 @@ private fun FavoriteCard(
             )
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = if (expandedNow) s.collapse else s.expand,
+                contentDescription = s.expand,
                 tint = Color.White,
-                modifier = Modifier
-                    .size(20.dp)
-                    .rotate(if (expandedNow) 90f else 0f),
+                modifier = Modifier.size(20.dp),
             )
         }
     }
