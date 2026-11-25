@@ -1,5 +1,6 @@
 package com.foldersound.ui.library
 
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -92,6 +93,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -279,13 +281,11 @@ fun LibraryScreen(
     // границы карусели на экране: жесты, начавшиеся внутри неё, не открывают плеер
     var favBounds by remember { mutableStateOf<Rect?>(null) }
 
-    // «назад»: сначала шторка, потом поиск, потом сброс выбора
-    BackHandler(enabled = !drawerOpen && (searchOpen || selected.isNotEmpty())) {
-        when {
-            searchOpen -> vm.openSearch(false)
-            else -> vm.clearSelection()
-        }
-    }
+    // «назад» на главном экране сворачивает приложение в фон — выделение
+    // и музыка сохраняются; сначала закрываются поиск и шторка
+    val activity = LocalContext.current as? ComponentActivity
+    BackHandler(enabled = !drawerOpen) { activity?.moveTaskToBack(true) }
+    BackHandler(enabled = !drawerOpen && searchOpen) { vm.openSearch(false) }
     BackHandler(enabled = drawerOpen) { drawerOpen = false }
 
     // свайп влево → плеер: при выборе или когда что-то играет (быстрое
