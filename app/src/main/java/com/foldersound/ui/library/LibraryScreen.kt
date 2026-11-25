@@ -1019,6 +1019,7 @@ private fun LazyListScope.treeRows(
             )
             is Row.FavoritesCarouselRow -> FavoritesSection(
                 folders = row.folders,
+                selected = selected,
                 expanded = expanded,
                 vm = vm,
                 onFolderMenu = onFolderMenu,
@@ -1108,6 +1109,9 @@ private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
 @Composable
 private fun FavoritesSection(
     folders: List<FolderNode>,
+    // выбор читается здесь, а не через vm внутри карточки: так секция
+    // перерисовывается при любом изменении выделения (счётчики на карточках)
+    selected: Set<Long>,
     expanded: Set<String>,
     vm: LibraryViewModel,
     onFolderMenu: (FolderNode) -> Unit,
@@ -1180,10 +1184,19 @@ private fun FavoritesSection(
                 flingBehavior = fling,
             ) {
                 items(folders, key = { "favcard${it.path}" }) { node ->
+                    val selCount = node.allTracks.count { selected.contains(it.id) }
+                    val selState = when {
+                        selCount == 0 -> CheckState.Off
+                        selCount == node.allTracks.size -> CheckState.On
+                        else -> CheckState.Mixed
+                    }
                     FavoriteCard(
                         node = node,
                         onOpenFolder = { onOpenFolder(node.path) },
                         onLongPress = { onFolderMenu(node) },
+                        checkState = selState,
+                        selectedCount = selCount,
+                        onToggleSel = { vm.toggleFolderSelection(node) },
                         modifier = Modifier.width(cardWidth),
                     )
                 }
@@ -1199,6 +1212,11 @@ private fun FavoriteCard(
     node: FolderNode,
     onOpenFolder: () -> Unit,
     onLongPress: () -> Unit,
+    /** Состояние выделения папки — тот же контрол, что у строк папок. */
+    checkState: CheckState,
+    /** Сколько выбранных треков в поддереве — пишется на контроле. */
+    selectedCount: Int,
+    onToggleSel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val fs = Fs.c
@@ -1297,33 +1315,70 @@ private fun FavoriteCard(
                 .height(1.dp)
                 .background(Color.White),
         )
-        // «Открыть папку» — единственная зона тапа: открывает экран папки
+        // нижняя строка: слева контроль выделения (как у строк папок — удержание ~1 с,
+        // с числом выбранных), справа «Открыть ›» — единственная зона тапа,
+        // открывающая экран папки
         Row(
             Modifier
                 .padding(top = 4.dp, bottom = 2.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onOpenFolder,
-                )
-                .padding(horizontal = 4.dp, vertical = 5.dp),
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                s.openFolder,
-                Modifier.weight(1f),
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.W800,
-            )
-            Icon(
-                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                contentDescription = s.expand,
-                tint = Color.White,
-                modifier = Modifier.size(18.dp),
-            )
+            Box(
+                Modifier
+                    .size(38.dp, 44.dp)
+                    .clip(CircleShape)
+                    .holdToggle {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        onToggleSel()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selectedCount > 0) {
+                    Box(
+                        Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(if (checkState == CheckState.On) fs.audiobooksGradStart else fs.primary),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            if (selectedCount > 99) "99+" else selectedCount.toString(),
+                            color = Color.White,
+                            fontSize = if (selectedCount > 99) 10.sp else 13.sp,
+                            fontWeight = FontWeight.W800,
+                            maxLines = 1,
+                        )
+                    }
+                } else {
+                    TriCheck(state = checkState, modifier = Modifier.size(38.dp, 44.dp))
+                }
+            }
+            Spacer(Modifier.weight(1f))
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onOpenFolder,
+                    )
+                    .padding(start = 12.dp, top = 5.dp, bottom = 5.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    s.openShort,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.W800,
+                )
+                Icon(
+                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                    contentDescription = s.expand,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
     }
 }
