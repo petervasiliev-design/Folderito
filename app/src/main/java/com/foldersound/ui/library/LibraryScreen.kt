@@ -1601,6 +1601,8 @@ private fun FolderRowView(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(15.dp))
                 .background(if (pressed) fs.surf3 else fs.surf2)
+                // тонкий бордюр в цвет рамки галочки — отделяет карточку от фона
+                .border(1.dp, fs.secondary, RoundedCornerShape(15.dp))
                 // удержание 2 с — меню папки (holdToggle первым в цепочке: тап не
                 // consumed и доходит до clickable, удержание добивается само)
                 .then(
