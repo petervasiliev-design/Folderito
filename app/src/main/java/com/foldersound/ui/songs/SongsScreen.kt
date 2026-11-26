@@ -24,7 +24,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Save
@@ -167,7 +167,7 @@ fun SongsScreen(
                 hintTitle = s.savePlaylist, hintDesc = s.savePlaylistDesc,
             )
             com.foldersound.ui.common.IconBtn(
-                Icons.Filled.Cancel,
+                Icons.Outlined.Cancel,
                 s.clearAll,
                 onClick = { confirmClear = true },
                 hintTitle = s.clearAll, hintDesc = s.clearAllDesc,

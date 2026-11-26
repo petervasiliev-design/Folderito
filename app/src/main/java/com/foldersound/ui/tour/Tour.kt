@@ -23,7 +23,7 @@ import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Menu
@@ -140,7 +140,7 @@ private val TourBtnVectors = mapOf(
     TOK_BTN_MENU to Icons.Filled.Menu,
     TOK_BTN_SEARCH to Icons.Filled.Search,
     TOK_BTN_COLLAPSE to Icons.Filled.UnfoldLess,
-    TOK_BTN_CLEAR to Icons.Filled.Cancel,
+    TOK_BTN_CLEAR to Icons.Outlined.Cancel,
     TOK_BTN_PLAYER to Icons.AutoMirrored.Filled.ArrowForward,
 )
 

@@ -54,7 +54,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pause
@@ -613,7 +613,7 @@ private fun Header(
                 hintDesc = s.collapseAllDesc,
             )
             IconBtn(
-                Icons.Filled.Cancel,
+                Icons.Outlined.Cancel,
                 s.clearAll,
                 onClick = { confirmClear = true },
                 modifier = Modifier.tourTarget("lib.clear"),
