@@ -1742,30 +1742,25 @@ private fun PlaylistFolderRowView(
                 .padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 14.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
-                .background(
-                    if (pressed) Brush.linearGradient(
-                        listOf(
-                            fs.standardGradStart.copy(alpha = 0.88f),
-                            fs.standardGradEnd.copy(alpha = 0.88f),
-                        )
-                    ) else Brush.linearGradient(listOf(fs.standardGradStart, fs.standardGradEnd))
-                )
+                // цвета — как у панелей папок: кремовый фон, коричневый бордюр
+                .background(if (pressed) fs.surf3 else fs.surf2)
+                .border(1.dp, fs.secondary, RoundedCornerShape(20.dp))
                 .clickable(interactionSource = interaction, indication = null, onClick = onOpen)
                 .padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // иконка в скруглённом чипе с полупрозрачным белым оверлеем
+            // иконка в скруглённом чипе
             Box(
                 Modifier
                     .size(56.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.22f)),
+                    .background(fs.surf3),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.QueueMusic,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = fs.secondary,
                     modifier = Modifier.size(30.dp),
                 )
             }
@@ -1776,7 +1771,7 @@ private fun PlaylistFolderRowView(
             ) {
                 Text(
                     s.playlists,
-                    color = Color.White,
+                    color = fs.on,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.W800,
                     maxLines = 1,
@@ -1787,23 +1782,23 @@ private fun PlaylistFolderRowView(
                         append(s.plural(playlistsCount, s.pPlaylists))
                         if (tracksCount > 0) append(" · ${s.plural(tracksCount, s.pTracks)}")
                     },
-                    color = Color.White.copy(alpha = 0.85f),
+                    color = fs.on2,
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.W600,
                 )
             }
-            // шеврон в кружке с полупрозрачным оверлеем
+            // шеврон в кружке
             Box(
                 Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.18f)),
+                    .background(fs.surf3),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                     contentDescription = if (expandedNow) s.collapse else s.expand,
-                    tint = Color.White,
+                    tint = fs.on3,
                     modifier = Modifier
                         .size(20.dp)
                         .rotate(if (expandedNow) 90f else 0f),
