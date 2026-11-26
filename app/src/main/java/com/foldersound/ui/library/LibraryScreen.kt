@@ -580,7 +580,7 @@ private fun Header(
                     Box(
                         Modifier
                             .align(Alignment.Top)
-                            .padding(top = 17.dp)
+                            .padding(top = 15.dp)
                             .size(7.dp)
                             .clip(CircleShape)
                             .background(fs.secondary),
@@ -695,7 +695,8 @@ private fun NothingSelectedBar(
             .fillMaxWidth()
             .shadow(14.dp, RoundedCornerShape(18.dp))
             .clip(RoundedCornerShape(18.dp))
-            .background(fs.surf2)
+            // фон — как у карточек избранного (surf3)
+            .background(fs.surf3)
             .border(1.dp, fs.outline, RoundedCornerShape(18.dp))
             .then(
                 if (quickFolder == null) {
@@ -709,20 +710,21 @@ private fun NothingSelectedBar(
                     )
                 }
             )
-            .padding(start = 12.dp, end = 10.dp, top = 9.dp, bottom = 9.dp),
+            .padding(start = 12.dp, end = 10.dp, top = 17.dp, bottom = 17.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // значок — как чип «Плейлистов»: коричневый фон, бежевый значок
         Box(
             Modifier
                 .size(42.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(fs.surf3),
+                .background(fs.secondary),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.QueueMusic,
                 contentDescription = null,
-                tint = if (quickFolder != null) fs.accent else fs.on3,
+                tint = fs.surf2,
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -2129,7 +2131,8 @@ fun SelectionBar(
             .fillMaxWidth()
             .shadow(14.dp, RoundedCornerShape(18.dp))
             .clip(RoundedCornerShape(18.dp))
-            .background(fs.surf2)
+            // фон — как у карточек избранного (surf3)
+            .background(fs.surf3)
             .border(1.dp, fs.outline, RoundedCornerShape(18.dp))
             // клик по корпусу панели открывает плеер (кнопки перехватывают свои тапы сами)
             .clickable(
@@ -2137,17 +2140,18 @@ fun SelectionBar(
                 indication = null,
                 onClick = onOpen,
             )
-            .padding(start = 12.dp, end = 10.dp, top = 9.dp, bottom = 9.dp),
+            .padding(start = 12.dp, end = 10.dp, top = 17.dp, bottom = 17.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // значок — как чип «Плейлистов»: коричневый фон, бежевый значок
         Box(
             Modifier
                 .size(42.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(fs.surf3),
+                .background(fs.secondary),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = fs.accent, modifier = Modifier.size(22.dp))
+            Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = fs.surf2, modifier = Modifier.size(22.dp))
         }
         Column(
             Modifier
