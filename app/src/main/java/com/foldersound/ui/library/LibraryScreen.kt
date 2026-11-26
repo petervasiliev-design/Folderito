@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -89,18 +90,21 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -173,6 +177,19 @@ private fun FolderNode.findByPath(path: String): FolderNode? {
     if (this.path == path) return this
     children.values.forEach { it.findByPath(path)?.let { found -> return found } }
     return null
+}
+
+/** Сегменты «хлебных крошек» из корневого пути библиотеки:
+ *  /storage/emulated/0/Music → «Внутренняя память», «Music». */
+private fun crumbSegments(s: FsStrings, rootPath: String?): List<String> {
+    val p = rootPath ?: return listOf(s.internalStorage)
+    val m = Regex("^/storage/(?:emulated|self)/\\d+").find(p)
+    return if (m != null) {
+        val rel = p.substring(m.value.length).trim('/')
+        listOf(s.internalStorage) + rel.split('/').filter { it.isNotBlank() }
+    } else {
+        p.split('/').filter { it.isNotBlank() }
+    }
 }
 
 private fun buildRows(
@@ -559,42 +576,17 @@ private fun Header(
                         color = fs.on,
                     )
                     Spacer(Modifier.width(5.dp))
-                    // акцентная точка — фирменный знак после имени
+                    // акцентная точка — фирменный знак после имени, по верхнему краю строчной «о»
                     Box(
                         Modifier
-                            .padding(top = 8.dp)
+                            .align(Alignment.Top)
+                            .padding(top = 17.dp)
                             .size(7.dp)
                             .clip(CircleShape)
-                            .background(fs.accent2),
+                            .background(fs.secondary),
                     )
                 }
-                Row(
-                    Modifier.padding(top = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Icon(
-                        FsIcons.Folder,
-                        contentDescription = null,
-                        tint = fs.on3,
-                        modifier = Modifier.size(12.dp),
-                    )
-                    Text(
-                        text = buildString {
-                            append(lib?.rootPath ?: "/storage/emulated/0")
-                            lib?.let { l ->
-                                append("  ·  ${s.plural(l.foldersCount, s.pFolders)}")
-                                append("  ·  ${s.plural(l.allTracks.size, s.pTracks)}")
-                                append("  ·  ${s.formatTotalMs(l.totalMs)}")
-                            }
-                        },
-                        color = fs.on2,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.W600,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                // «хлебные крошки» в панели: Внутренняя память › Музыка › …
             }
             IconBtn(
                 Icons.Filled.Search,
@@ -627,6 +619,46 @@ private fun Header(
                 onOpenPlayer,
                 modifier = Modifier.tourTarget("lib.toPlayer"),
                 tint = if (canGoToPlayer) fs.accent else fs.on3,
+            )
+        }
+        // «хлебные крошки» в панели: Внутренняя память › Музыка › …
+        // левый край — с панелью «Плейлисты» (12dp от края экрана); ширина по надписи,
+        // но не шире самой панели — при длинном пути текст обрезается «…»
+        val panelWidth = LocalConfiguration.current.screenWidthDp.dp - 24.dp
+        val crumbs = crumbSegments(s, lib?.rootPath)
+        Row(
+            Modifier
+                .padding(start = 6.dp, top = 7.dp)
+                .widthIn(max = panelWidth)
+                .clip(RoundedCornerShape(50))
+                .background(fs.surf2)
+                .border(1.dp, fs.secondary, RoundedCornerShape(50))
+                .padding(start = 12.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                FsIcons.Folder,
+                contentDescription = null,
+                tint = fs.secondary,
+                modifier = Modifier.size(15.dp),
+            )
+            Spacer(Modifier.width(7.dp))
+            Text(
+                text = buildAnnotatedString {
+                    crumbs.forEachIndexed { i, c ->
+                        if (i > 0) {
+                            withStyle(SpanStyle(color = fs.on3)) { append("  ›  ") }
+                        }
+                        append(c)
+                    }
+                    // завершающий разделитель, как на макете
+                    withStyle(SpanStyle(color = fs.on3)) { append("  ›") }
+                },
+                color = fs.on,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.W600,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -1171,8 +1203,9 @@ private fun FavoritesSection(
         // боковой отступ = (экран - карточка) / 2: первый/последний элемент
         // тоже может встать точно по центру, соседи выглядывают по краям
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val sidePad = (maxWidth - maxWidth * 0.85f) / 2
-            val cardWidth = maxWidth * 0.85f
+            // карточка ~3/4 ширины экрана: боковой отступ = (экран - карточка) / 2
+            val sidePad = (maxWidth - maxWidth * 0.75f) / 2
+            val cardWidth = maxWidth * 0.75f
             val density = LocalDensity.current
             val stepPx = with(density) { (cardWidth + 12.dp).toPx() }
             val fling = remember(stepPx) { BallSettleFling(listState) { stepPx } }
@@ -1205,8 +1238,9 @@ private fun FavoritesSection(
     }
 }
 
-/** Карточка избранной папки: чип-иконка, звезда-бейдж, счётчики, «Открыть папку».
- *  Тап — открыть экран папки; удержание 2 с — меню «избранное / спрятать». */
+/** Карточка избранной папки в одну строку: контроль выделения, чип-иконка,
+ *  имя и счётчики, звезда-бейдж, шеврон в кружке (открывает экран папки).
+ *  Удержание 2 с — меню «избранное / спрятать». */
 @Composable
 private fun FavoriteCard(
     node: FolderNode,
@@ -1222,163 +1256,115 @@ private fun FavoriteCard(
     val fs = Fs.c
     val s = LocalStrings.current
     val view = LocalView.current
-    val isAudiobooks = node.name.equals("Audiobooks", ignoreCase = true)
-    val isMusic = node.name.equals("Music", ignoreCase = true)
-    val chipBrush = when {
-        isAudiobooks -> Brush.linearGradient(listOf(fs.audiobooksGradStart, fs.audiobooksGradEnd))
-        else -> Brush.linearGradient(listOf(fs.standardGradStart, fs.standardGradEnd))
-    }
-    val chipIcon = when {
-        isAudiobooks -> Icons.AutoMirrored.Filled.MenuBook
-        isMusic -> Icons.AutoMirrored.Filled.QueueMusic
-        else -> FsIcons.Folder
-    }
-    Column(
+    Row(
         modifier
             .clip(RoundedCornerShape(20.dp))
-            // фон — тёплый беж: стандартный градиент скина, сильно осветлённый
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        lerp(fs.standardGradStart, Color.White, 0.38f),
-                        lerp(fs.standardGradEnd, Color.White, 0.38f),
-                    )
-                )
-            )
-            .border(1.dp, fs.outline, RoundedCornerShape(20.dp))
+            // фон — ровный, чуть темнее панелей папок (surf3); бордюр — как у панелей папок
+            .background(fs.surf3)
+            .border(1.dp, fs.secondary, RoundedCornerShape(20.dp))
             // удержание 2 с — меню «избранное / спрятать»
             .holdToggle(timeoutMs = 2_000) {
                 view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                 onLongPress()
             }
-            .padding(start = 12.dp, end = 12.dp, top = 26.dp, bottom = 18.dp),
+            // справа шеврон на том же расстоянии от края, что видимая галочка слева
+            // (10dp паддинг + (38-21)/2 = 8.5dp внутренний отступ TriCheck)
+            .padding(start = 10.dp, end = 18.5.dp, top = 22.dp, bottom = 22.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        // значок + имя и счётчики справа от него + звезда-бейдж
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(13.dp))
-                    .background(chipBrush),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(chipIcon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
-            }
-            Column(
-                Modifier
-                    .weight(1f)
-                    .padding(start = 11.dp)
-            ) {
-                Text(
-                    node.name,
-                    color = fs.on,
-                    fontSize = 15.5.sp,
-                    fontWeight = FontWeight.W800,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    buildString {
-                        val subs = node.children.size
-                        if (subs > 0) append("${s.plural(subs, s.pSubfolders)} · ")
-                        append(s.plural(node.allTracks.size, s.pTracks))
-                    },
-                    Modifier.padding(top = 2.dp),
-                    color = fs.on2,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.W600,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            // звезда-бейдж — только индикатор, без тапа
-            Box(
-                Modifier
-                    .size(30.dp)
-                    .clip(CircleShape)
-                    .background(fs.surf),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Filled.Star,
-                    contentDescription = s.removeFromFavorites,
-                    tint = fs.audiobooksGradStart,
-                    modifier = Modifier.size(17.dp),
-                )
-            }
-        }
+        // контроль выделения — как у строк папок: удержание ~1 с, с числом выбранных
         Box(
             Modifier
-                .padding(top = 24.dp)
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(Color.White),
-        )
-        // нижняя строка: слева контроль выделения (как у строк папок — удержание ~1 с,
-        // с числом выбранных), справа «Открыть ›» — единственная зона тапа,
-        // открывающая экран папки
-        Row(
-            Modifier
-                .padding(top = 4.dp, bottom = 2.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+                .size(38.dp, 40.dp)
+                .clip(CircleShape)
+                .holdToggle {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                    onToggleSel()
+                },
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                Modifier
-                    .size(38.dp, 44.dp)
-                    .clip(CircleShape)
-                    .holdToggle {
-                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                        onToggleSel()
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                if (selectedCount > 0) {
-                    Box(
-                        Modifier
-                            .size(30.dp)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(if (checkState == CheckState.On) fs.audiobooksGradStart else fs.primary),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            if (selectedCount > 99) "99+" else selectedCount.toString(),
-                            color = Color.White,
-                            fontSize = if (selectedCount > 99) 10.sp else 13.sp,
-                            fontWeight = FontWeight.W800,
-                            maxLines = 1,
-                        )
-                    }
-                } else {
-                    TriCheck(state = checkState, modifier = Modifier.size(38.dp, 44.dp))
-                }
-            }
-            Spacer(Modifier.weight(1f))
-            Row(
-                Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onOpenFolder,
+            if (selectedCount > 0) {
+                Box(
+                    Modifier
+                        .size(26.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (checkState == CheckState.On) fs.audiobooksGradStart else fs.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        if (selectedCount > 99) "99+" else selectedCount.toString(),
+                        color = Color.White,
+                        fontSize = if (selectedCount > 99) 9.sp else 11.sp,
+                        fontWeight = FontWeight.W800,
+                        maxLines = 1,
                     )
-                    .padding(start = 12.dp, top = 5.dp, bottom = 5.dp, end = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    s.openShort,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.W800,
-                )
-                Icon(
-                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                    contentDescription = s.expand,
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp),
-                )
+                }
+            } else {
+                TriCheck(state = checkState, modifier = Modifier.size(38.dp, 40.dp))
             }
+        }
+        Spacer(Modifier.width(4.dp))
+        // звезда-бейдж на месте значка папки — только индикатор, без тапа;
+        // позиция сразу после галочки — одинакова у всех карточек
+        Box(
+            Modifier
+                .size(39.dp)
+                .clip(CircleShape)
+                .background(fs.surf),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Filled.Star,
+                contentDescription = s.removeFromFavorites,
+                tint = fs.audiobooksGradStart,
+                modifier = Modifier.size(21.dp),
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        // имя и счётчики
+        Column(Modifier.weight(1f)) {
+            Text(
+                node.name,
+                color = fs.on,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.W800,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                buildString {
+                    val subs = node.children.size
+                    if (subs > 0) append("${s.plural(subs, s.pSubfolders)} · ")
+                    append(s.plural(node.allTracks.size, s.pTracks))
+                },
+                Modifier.padding(top = 1.dp),
+                color = fs.on2,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.W600,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(6.dp))
+        // шеврон в кружке, как у плиток плейлистов, — тап открывает экран папки
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(fs.surf2)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onOpenFolder,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = s.expand,
+                tint = fs.on3,
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
@@ -1749,19 +1735,19 @@ private fun PlaylistFolderRowView(
                 .padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // иконка в скруглённом чипе
+            // иконка в скруглённом чипе: инверсия — коричневый фон, бежевый значок
             Box(
                 Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(fs.surf3),
+                    .size(45.dp)
+                    .clip(RoundedCornerShape(13.dp))
+                    .background(fs.secondary),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.QueueMusic,
                     contentDescription = null,
-                    tint = fs.secondary,
-                    modifier = Modifier.size(30.dp),
+                    tint = fs.surf2,
+                    modifier = Modifier.size(24.dp),
                 )
             }
             Column(

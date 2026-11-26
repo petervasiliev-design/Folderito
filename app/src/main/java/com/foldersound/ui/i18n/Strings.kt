@@ -36,6 +36,7 @@ data class FsStrings(
     val langCode: String,
     // ==================== библиотека ====================
     val folders: String,
+    val internalStorage: String,
     val tracks: String,
     val playlists: String,
     val songsGroup: String,
@@ -213,6 +214,7 @@ data class FsStrings(
 private val RuStrings = FsStrings(
     langCode = "ru",
     folders = "Папки",
+    internalStorage = "Внутренняя память",
     tracks = "Треки",
     playlists = "Плейлисты",
     songsGroup = "Песни",
@@ -370,6 +372,7 @@ private val RuStrings = FsStrings(
 private val EnStrings = FsStrings(
     langCode = "en",
     folders = "Folders",
+    internalStorage = "Internal storage",
     tracks = "Tracks",
     playlists = "Playlists",
     songsGroup = "Songs",
@@ -527,6 +530,7 @@ private val EnStrings = FsStrings(
 private val DeStrings = FsStrings(
     langCode = "de",
     folders = "Ordner",
+    internalStorage = "Interner Speicher",
     tracks = "Titel",
     playlists = "Playlists",
     songsGroup = "Songs",
